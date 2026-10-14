@@ -7,7 +7,12 @@ import {
   wrappingInputRuleHandler,
 } from './handlers';
 import { InputRule } from './inputrules';
-import { shortcuts, simpleMarkShortcuts } from './shortcuts';
+import {
+  closedDash,
+  closedDashPattern,
+  shortcuts,
+  simpleMarkShortcuts,
+} from './shortcuts';
 import { MarkType, Node } from 'prosemirror-model';
 import { insertMenuInputRule } from '../autocomplete/insert-menu';
 import { referenceMenuInputRule } from '../autocomplete/reference-menu';
@@ -21,6 +26,22 @@ const textShortcutRules = Object.entries(shortcuts).map(
 
 export function inputRulesForSchema({ nodes, marks, config }: EditorSchema) {
   const rules = [...textShortcutRules];
+  // FORK (devinchaloux): "melody--not" → "melody—not"; see shortcuts.ts.
+  rules.push({
+    pattern: closedDashPattern,
+    handler(state, match, start) {
+      // Not inside inline code, where two hyphens mean two hyphens.
+      if (marks.code && marks.code.isInSet(state.selection.$from.marks())) {
+        return null;
+      }
+      const dashFrom = start + match[1].length;
+      return state.tr.insertText(
+        closedDash(match[1], match[2]),
+        dashFrom,
+        dashFrom + 2
+      );
+    },
+  });
   if (nodes.blockquote) {
     rules.push({
       pattern: /^\s*>\s$/,
