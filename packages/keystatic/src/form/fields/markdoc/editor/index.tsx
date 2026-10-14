@@ -11,6 +11,7 @@ import {
 } from '@keystar/ui/style';
 
 import { Toolbar } from './Toolbar';
+import { WordCount } from './word-count';
 import { prosemirrorStyles } from './utils';
 import { EditorPopoverDecoration } from './popovers';
 import { ProseMirrorEditable, ProseMirrorEditor } from './editor-view';
@@ -129,6 +130,8 @@ export const Editor = forwardRef(function Editor(
               data-keystatic-editor="content"
             />
           </div>
+          {/* FORK (devinchaloux): the live word count. */}
+          <WordCount />
         </Box>
         <NodeViews state={value} />
         <CellMenuPortal />

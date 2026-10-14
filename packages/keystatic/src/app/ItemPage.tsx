@@ -38,7 +38,7 @@ import {
   useMediaQuery,
 } from '@keystar/ui/style';
 import { TextField } from '@keystar/ui/text-field';
-import { Heading, Text } from '@keystar/ui/typography';
+import { Heading, Kbd, Text } from '@keystar/ui/typography';
 
 import { Config } from '../config';
 import { ComponentSchema, GenericPreviewProps, ObjectField } from '../form/api';
@@ -679,7 +679,13 @@ function HeaderActions(props: {
         >
           <Icon src={focused ? minimize2Icon : maximize2Icon} />
         </ActionButton>
-        <Tooltip>{focused ? 'Leave focus mode' : 'Focus mode'} (⌘⇧F)</Tooltip>
+        {/* Kbd names the keys for the platform: Ctrl+Shift+F on Windows. */}
+        <Tooltip>
+          <Text>{focused ? 'Leave focus mode' : 'Focus mode'}</Text>
+          <Kbd meta shift>
+            F
+          </Kbd>
+        </Tooltip>
       </TooltipTrigger>
       <ActionGroup
         buttonLabelBehavior="hide"

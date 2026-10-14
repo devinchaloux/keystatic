@@ -2,7 +2,7 @@
 //
 // One switch that collapses both side panels while writing: the app's
 // navigation and an entry's fields panel. Toggled by the ⤢ button in an
-// entry's header or ⌘⇧F / Ctrl+Shift+F, and remembered across reloads, since
+// entry's header or Ctrl+Shift+F (⌘⇧F on a Mac), and remembered across reloads, since
 // a writing session tends to outlast a page load.
 //
 // A tiny shared store rather than React context: the two panels and the

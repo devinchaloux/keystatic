@@ -1,3 +1,4 @@
+import { isHotkey } from 'is-hotkey';
 import { setBlockType, toggleMark, wrapIn } from 'prosemirror-commands';
 import { MarkType, NodeType } from 'prosemirror-model';
 import { Command, EditorState, TextSelection } from 'prosemirror-state';
@@ -89,7 +90,10 @@ function LinkButton(props: { link: MarkType }) {
   const runCommand = useEditorDispatchCommand();
   const viewRef = useEditorViewRef();
   useEditorKeydownListener(event => {
-    if (event.metaKey && (event.key === 'k' || event.key === 'K')) {
+    // FORK (devinchaloux): ⌘K on a Mac, Ctrl+K elsewhere. Upstream checked
+    // the ⌘ key alone, so on Windows the shortcut its tooltip names (Ctrl+K)
+    // did nothing.
+    if (isHotkey('mod+k', event)) {
       const { state } = viewRef.current!;
       if (!isMarkActive(props.link)(state)) {
         event.preventDefault();
