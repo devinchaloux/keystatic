@@ -27,6 +27,7 @@ import { Config } from '../config';
 import { ThemeProvider, useTheme } from './shell/theme';
 import { parseRepoConfig } from './repo-config';
 import { useRouter } from './router';
+import { setPasteUrlHandler } from '../form/fields/markdoc/editor/paste-url';
 
 // NOTE: scroll behaviour is handled by shell components
 injectGlobal({ body: { overflow: 'hidden' } });
@@ -181,6 +182,19 @@ export function createUrqlClient(config: Config): Client {
   });
 }
 
+// FORK (devinchaloux): the compact sidebar menu. The UI kit's nav list sets
+// its own padding (a 32px minimum row, 8px around group headings, a gap
+// between groups); these rules tighten it. They key on the class the sidebar
+// adds when `ui.density` is 'compact', and outrank the kit's single-class
+// rules by specificity, not !important.
+const COMPACT_NAV_CSS = `
+.ks-fork-compact-nav nav li > a { padding-block: 0; }
+.ks-fork-compact-nav nav li > a > div { min-height: 28px; padding-block: 3px; }
+.ks-fork-compact-nav nav h3 { padding-block: 4px 2px; }
+.ks-fork-compact-nav nav ul > li:has(> h3):not(:first-child) { margin-block-start: 14px; }
+.ks-fork-compact-nav nav ul > li:has(> h3):not(:last-child) { margin-block-end: 0; }
+`;
+
 export default function Provider({
   children,
   config,
@@ -188,6 +202,8 @@ export default function Provider({
   children: JSX.Element;
   config: Config;
 }) {
+  // FORK (devinchaloux): hand the site's paste rule to the editor plugin.
+  setPasteUrlHandler(config.ui?.onPasteUrl);
   const themeContext = useTheme();
   const { push, replace } = useRouter();
   const keystarRouter = useMemo(
@@ -226,6 +242,12 @@ export default function Provider({
           <style
             data-keystatic-theme=""
             dangerouslySetInnerHTML={{ __html: config.ui.theme.css }}
+          />
+        )}
+        {config.ui?.density === 'compact' && (
+          <style
+            data-keystatic-compact=""
+            dangerouslySetInnerHTML={{ __html: COMPACT_NAV_CSS }}
           />
         )}
         <UrqlProvider value={useMemo(() => createUrqlClient(config), [config])}>

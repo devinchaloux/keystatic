@@ -15,6 +15,7 @@ import { toastQueue } from '@keystar/ui/toast';
 import { Config } from '../config';
 import { ComponentSchema, GenericPreviewProps, ObjectField } from '../form/api';
 import { getInitialPropsValue } from '../form/initial-values';
+import slugify from '@sindresorhus/slugify';
 import { clientSideValidateProp } from '../form/errors';
 import { useEventCallback } from '../form/fields/document/DocumentEditor/ui-utils';
 
@@ -72,6 +73,27 @@ function CreateItemWrapper(props: {
 
   const collectionConfig = props.config.collections?.[props.collection];
   if (!collectionConfig) notFound();
+
+  // FORK (devinchaloux): `?<slug field>=Some title` starts the new entry
+  // with that title (and the slug generated from it, as the field would).
+  // A site's dashboard uses it for "Write it" on a promised piece.
+  const prefillName = useMemo(() => {
+    const url = new URL(router.href, 'http://localhost');
+    return url.searchParams.get(collectionConfig.slugField);
+  }, [router.href, collectionConfig.slugField]);
+  const prefillState = useMemo(() => {
+    if (!prefillName) return undefined;
+    return {
+      ...(getInitialPropsValue({
+        kind: 'object',
+        fields: collectionConfig.schema,
+      }) as Record<string, unknown>),
+      [collectionConfig.slugField]: {
+        name: prefillName,
+        slug: slugify(prefillName),
+      },
+    };
+  }, [prefillName, collectionConfig]);
   const format = useMemo(
     () => getCollectionFormat(props.config, props.collection),
     [props.config, props.collection]
@@ -234,7 +256,7 @@ function CreateItemWrapper(props: {
         basePath={props.basePath}
         draft={draftData.kind === 'loaded' ? draftData.data : undefined}
         duplicateSlug={duplicateSlug}
-        initialState={duplicateInitalStateWithUpdatedSlug}
+        initialState={duplicateInitalStateWithUpdatedSlug ?? prefillState}
       />
     );
   }
@@ -244,7 +266,7 @@ function CreateItemWrapper(props: {
       config={props.config}
       basePath={props.basePath}
       duplicateSlug={duplicateSlug}
-      initialState={duplicateInitalStateWithUpdatedSlug}
+      initialState={duplicateInitalStateWithUpdatedSlug ?? prefillState}
       map={mapData.data}
     />
   );

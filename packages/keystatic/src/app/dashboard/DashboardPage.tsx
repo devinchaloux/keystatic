@@ -25,13 +25,15 @@ export function DashboardPage(props: { config: Config; basePath: string }) {
 
   const router = useRouter();
   const Desk = props.config.ui?.desk;
+  const compact = props.config.ui?.density === 'compact';
 
   const user = viewer
     ? { name: viewer.name ?? viewer.login, avatarUrl: viewer.avatarUrl }
     : cloudInfo?.user;
 
   return (
-    <PageRoot containerWidth="large">
+    // FORK (devinchaloux): a reading width, not 1280px, when compact.
+    <PageRoot containerWidth={compact ? 'medium' : 'large'}>
       <PageHeader>
         <Heading elementType="h1" id="page-title" size="small">
           {stringFormatter.format('dashboard')}

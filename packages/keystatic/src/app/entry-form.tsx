@@ -26,6 +26,7 @@ import {
 } from '..';
 import { FormatInfo } from './path-utils';
 import { ScrollView } from './shell/primitives';
+import { useFocusMode } from './focus-mode';
 import { PageContainer } from './shell/page';
 import { useContentPanelQuery } from './shell/context';
 
@@ -82,6 +83,7 @@ export function FormForEntry({
   slugField: SlugFieldInfo | undefined;
 }) {
   const isAboveMobile = useContentPanelQuery({ above: 'mobile' });
+  const focused = useFocusMode();
 
   if (entryLayout === 'content' && formatInfo.contentField && isAboveMobile) {
     const { contentField } = formatInfo;
@@ -109,6 +111,8 @@ export function FormForEntry({
       <PathContextProvider value={emptyArray}>
         <SlugFieldProvider value={slugField}>
           <SplitView
+            // FORK (devinchaloux): focus mode hides the fields panel.
+            isCollapsed={focused}
             autoSaveId="keystatic-content-split-view"
             defaultSize={320}
             minSize={240}

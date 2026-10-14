@@ -12,7 +12,7 @@ import {
 } from '../../form-from-preview';
 import { AddToPathProvider } from '../text/path-slug-context';
 import { FIELD_GRID_COLUMNS, FieldContextProvider } from '../context';
-import { LabelRow, useHelpAsTooltip } from '../field-help';
+import { LabelRow, useCompactForms, useHelpAsTooltip } from '../field-help';
 
 // this is just to get the react compiler to run on this, because of a todo
 const belowTablet = containerQueries.below.tablet;
@@ -66,6 +66,8 @@ export function ObjectFieldInput<
   omitFieldAtPath,
 }: GenericPreviewProps<ObjectField<Fields>, unknown> & ExtraFieldInputProps) {
   validateLayout(schema);
+  // FORK (devinchaloux): 16px between fields rather than 24 when compact.
+  const compact = useCompactForms();
 
   const firstFocusable = autoFocus
     ? findFocusableObjectFieldKey(schema)
@@ -80,7 +82,7 @@ export function ObjectFieldInput<
     <Grid
       columns={`repeat(${FIELD_GRID_COLUMNS}, minmax(auto, 1fr))`}
       columnGap="medium"
-      rowGap="xlarge"
+      rowGap={compact ? 'large' : 'xlarge'}
     >
       {Object.entries(fields).map(([key, propVal], index) => {
         let span = schema.layout?.[index] ?? FIELD_GRID_COLUMNS;

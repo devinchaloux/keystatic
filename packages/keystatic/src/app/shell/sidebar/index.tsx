@@ -41,6 +41,7 @@ import { SIDE_PANEL_ID } from '../constants';
 import { GitMenu, ThemeMenu, UserActions } from './components';
 import { BranchPicker } from '../../branch-selection';
 import { useAppState, useConfig } from '../context';
+import { useCompactForms } from '../../../form/fields/field-help';
 
 const SidebarContext = createContext<OverlayTriggerState | null>(null);
 export function useSidebar() {
@@ -240,9 +241,18 @@ export function SidebarNav() {
   const stringFormatter = useLocalizedStringFormatter(l10nMessages);
   const navItems = useNavItems();
   const isCurrent = useIsCurrent();
+  // FORK (devinchaloux): a compact menu when `ui.density` is 'compact'.
+  // The spacing lives in the UI kit's nav list, so the rules that tighten it
+  // are CSS keyed to this attribute (COMPACT_NAV_CSS in ../../provider.tsx).
+  const compact = useCompactForms();
 
   return (
-    <ScrollView flex paddingY="large" paddingEnd="medium">
+    <ScrollView
+      flex
+      paddingY={compact ? 'regular' : 'large'}
+      paddingEnd="medium"
+      UNSAFE_className={compact ? 'ks-fork-compact-nav' : undefined}
+    >
       <NavList>
         <NavItem
           href={basePath}

@@ -19,6 +19,7 @@ import {
 } from './inputrules/rules';
 import { keydownHandler } from './keydown';
 import { pasteLinks } from './links';
+import { pasteUrlComponents } from './paste-url';
 import { markdocClipboard } from './markdoc/clipboard';
 import { nodeInSelectionDecorations } from './node-in-selection';
 import { placeholderPlugin } from './placeholder';
@@ -52,6 +53,9 @@ export function createEditorState(
     selection,
     storedMarks,
     plugins: [
+      // FORK (devinchaloux): before pasteLinks, so a URL the site turns into
+      // a component isn't made a link first.
+      pasteUrlComponents(schema),
       pasteLinks(schema),
       imageDropPlugin(schema),
       keydownHandler(),

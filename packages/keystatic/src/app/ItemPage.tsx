@@ -17,7 +17,7 @@ import * as s from 'superstruct';
 
 import { ActionGroup, Item } from '@keystar/ui/action-group';
 import { Badge } from '@keystar/ui/badge';
-import { Button, ButtonGroup } from '@keystar/ui/button';
+import { ActionButton, Button, ButtonGroup } from '@keystar/ui/button';
 import { AlertDialog, Dialog, DialogContainer } from '@keystar/ui/dialog';
 import { Icon } from '@keystar/ui/icon';
 import { copyPlusIcon } from '@keystar/ui/icon/icons/copyPlusIcon';
@@ -92,6 +92,10 @@ import { ErrorBoundary } from './error-boundary';
 import { copyEntryToClipboard, getPastedEntry } from './entry-clipboard';
 import { setValueToPreviewProps } from '../form/get-value';
 import { toastQueue } from '@keystar/ui/toast';
+import { maximize2Icon } from '@keystar/ui/icon/icons/maximize2Icon';
+import { minimize2Icon } from '@keystar/ui/icon/icons/minimize2Icon';
+import { toggleFocusMode, useFocusMode } from './focus-mode';
+import { Tooltip, TooltipTrigger } from '@keystar/ui/tooltip';
 
 type ItemPageProps = {
   collection: string;
@@ -567,6 +571,7 @@ function HeaderActions(props: {
   } = props;
   const isBelowDesktop = useMediaQuery(breakpointQueries.below.desktop);
   const stringFormatter = useLocalizedStringFormatter(l10nMessages);
+  const focused = useFocusMode();
   const [deleteAlertIsOpen, setDeleteAlertOpen] = useState(false);
   const [duplicateAlertIsOpen, setDuplicateAlertOpen] = useState(false);
   const menuActions = useMemo(() => {
@@ -664,6 +669,18 @@ function HeaderActions(props: {
     <Flex alignItems="center" gap={{ mobile: 'small', tablet: 'regular' }}>
       <PresenceAvatars />
       {indicatorElement}
+      {/* FORK (devinchaloux): focus mode, just the prose. */}
+      <TooltipTrigger>
+        <ActionButton
+          prominence="low"
+          aria-label={focused ? 'Leave focus mode' : 'Focus mode'}
+          aria-pressed={focused}
+          onPress={toggleFocusMode}
+        >
+          <Icon src={focused ? minimize2Icon : maximize2Icon} />
+        </ActionButton>
+        <Tooltip>{focused ? 'Leave focus mode' : 'Focus mode'} (⌘⇧F)</Tooltip>
+      </TooltipTrigger>
       <ActionGroup
         buttonLabelBehavior="hide"
         overflowMode="collapse"

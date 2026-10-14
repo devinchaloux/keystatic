@@ -13,6 +13,11 @@ import { getEditorSchema } from '../schema';
 // by an insert that never produced a popover is dropped by the next one.
 let autoOpenNextInlinePopover = false;
 
+/** Open the next inline popover's form on mount (a paste rule uses this). */
+export function armAutoOpen() {
+  autoOpenNextInlinePopover = true;
+}
+
 export function consumeAutoOpen(
   componentSchema: Record<string, unknown> | undefined
 ): boolean {

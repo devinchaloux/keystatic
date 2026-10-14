@@ -8,6 +8,7 @@ import { ReactNode, useRef } from 'react';
 
 import { ContentPanelProvider, useContentPanelState } from './context';
 import { SidebarDialog, SidebarPanel, useSidebar } from './sidebar';
+import { useFocusMode, useFocusModeShortcut } from '../focus-mode';
 
 // Main panel layout
 // -----------------------------------------------------------------------------
@@ -15,6 +16,9 @@ import { SidebarDialog, SidebarPanel, useSidebar } from './sidebar';
 export const MainPanelLayout = (props: { children: ReactNode }) => {
   let isBelowDesktop = useMediaQuery(breakpointQueries.below.desktop);
   let sidebarState = useSidebar();
+  // FORK (devinchaloux): focus mode collapses the navigation too.
+  let focused = useFocusMode();
+  useFocusModeShortcut();
   let ref = useRef<HTMLDivElement>(null);
   let context = useContentPanelState(ref);
 
@@ -22,7 +26,7 @@ export const MainPanelLayout = (props: { children: ReactNode }) => {
     <ContentPanelProvider value={context}>
       <SplitView
         autoSaveId="keystatic-app-split-view"
-        isCollapsed={isBelowDesktop || !sidebarState.isOpen}
+        isCollapsed={isBelowDesktop || !sidebarState.isOpen || focused}
         onCollapseChange={sidebarState.toggle}
         defaultSize={260}
         minSize={180}

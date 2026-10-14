@@ -113,6 +113,14 @@ type UserInterface<Collections, Singletons> = {
    * without a page load; `basePath` is where the admin lives, e.g.
    * "/keystatic".
    */
+  /**
+   * FORK (devinchaloux): a URL pasted on its own into prose may become a
+   * component: return its name and the values the URL gives, or nothing to
+   * paste it as usual. Its form opens for the rest.
+   */
+  onPasteUrl?: (
+    url: string
+  ) => { component: string; props: Record<string, unknown> } | null | undefined;
   desk?: (props: {
     basePath: string;
     navigate: (href: string) => void;
