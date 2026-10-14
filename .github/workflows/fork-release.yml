@@ -1,0 +1,68 @@
+# FORK (devinchaloux): build @keystatic/core from the tagged commit and publish
+# it as a GitHub Release, which devinchaloux.com installs. See FORK.md.
+#
+# Why a release built here, not a tarball built somewhere else and copied in:
+# anyone can follow the site's dependency back to the release, the release
+# back to this run, and this run back to the commit. Nothing compiled by hand
+# reaches the site.
+#
+# Triggered by pushing a tag named like `devinchaloux.2`. The tag must match
+# `forkRelease` in packages/keystatic/package.json, so a release can't
+# disagree with the label the site checks.
+name: Fork release
+
+on:
+  push:
+    tags:
+      - 'devinchaloux.*'
+
+permissions:
+  contents: write # to create the release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Upstream's own setup: pinned corepack, Node 24, `pnpm install`. Its
+      # postinstall runs the code generation the build needs.
+      - uses: ./.github/actions/setup-deps
+
+      - name: Check the tag matches forkRelease
+        run: |
+          label=$(node -p "require('./packages/keystatic/package.json').forkRelease")
+          if [ "$label" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag is $GITHUB_REF_NAME but forkRelease is $label. Bump one to match." >&2
+            exit 1
+          fi
+
+      - name: TypeScript
+        run: pnpm check:types
+
+      # The `keystatic` project only: the package this releases. The design
+      # system's own tests (`keystar/ui`) are left out because the site takes
+      # that package from npm unchanged, and 16 of them (toast, router,
+      # drag-and-drop) failed on untouched 0.6.9 when the fork was made.
+      - name: Unit tests
+        run: pnpm exec vitest run --project keystatic
+
+      - name: Build
+        run: pnpm build:packages
+
+      - name: Pack
+        run: |
+          mkdir release
+          cd packages/keystatic
+          pnpm pack --pack-destination ../../release
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd release
+          sha256sum *.tgz > SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" *.tgz SHA256SUMS \
+            --title "$GITHUB_REF_NAME" \
+            --target "$GITHUB_SHA" \
+            --notes "@keystatic/core built from $GITHUB_SHA by the Fork release workflow. FORK.md lists what this fork changes."

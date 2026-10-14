@@ -67,5 +67,5 @@ l10n.d.ts
 packages/keystatic/src/app/l10n/index.js
 packages/keystatic/src/app/l10n/index.d.ts
 
-# FORK (devinchaloux): packed releases, shipped to the site repo, not kept here
+# FORK (devinchaloux): local test builds; real releases are built by fork-release.yml
 release/
