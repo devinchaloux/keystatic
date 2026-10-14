@@ -90,9 +90,14 @@ export function useLivePreview(args: {
   state: Record<string, unknown>;
 }): { available: boolean; open: boolean; pane: ReactElement | undefined } {
   const { config, collection, state } = args;
-  const url = config.ui?.livePreview?.url;
-  const open = useLivePreviewOpen() && !!url;
   const collectionConfig = config.collections![collection];
+  // Only where the pane can show: an entry laid out as content (prose with
+  // its fields beside it). A form-only collection has nowhere to put it.
+  const url =
+    collectionConfig.entryLayout === 'content'
+      ? config.ui?.livePreview?.url
+      : undefined;
+  const open = useLivePreviewOpen() && !!url;
   const slug = getSlugFromState(collectionConfig, state);
   const text = useMemo(() => {
     if (!open) return '';

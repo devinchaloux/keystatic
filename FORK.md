@@ -6,7 +6,7 @@ shaped around one person's writing: dense cross-references, music examples,
 citations, records from a research corpus. Upstream Keystatic is built for
 general use and changes slowly, so the site now owns its copy.
 
-**Current release:** `devinchaloux.10`, based on `@keystatic/core@0.6.9`.
+**Current release:** `devinchaloux.11`, based on `@keystatic/core@0.6.9`.
 
 The site that uses it is private (`devinchaloux/devinchaloux-site`). This repo
 holds only editor code, never site content.
@@ -56,6 +56,7 @@ change, so `git grep "FORK (devinchaloux)"` lists them all. Each has a test.
 | devinchaloux.8  | **Closed dashes.** Two hyphens between words become an em dash ("melody—not"), between numbers an en dash ("2004–06"), on the next character typed; Ctrl+Z gives the hyphens back. Upstream converted only a spaced `-- `, to an en dash.                                                                                                                                                                                                                        | `src/form/fields/markdoc/editor/inputrules/shortcuts.ts`, `.../inputrules/rules.ts`, `.../tests/closed-dash.test.tsx` |
 | devinchaloux.9  | **`ui.livePreview: { url }`.** A Live preview button on entries swaps the fields panel for the page the entry will become, redrawn as you type (400ms after the last key). The entry, unsaved, is POSTed to `url` as `{ collection, slug, text }` (`text`: the file a save would write) and the site's HTML is shown; later pages replace only the body, so styles stay loaded and the scroll stays put. An `X-Preview-Problems` header is shown above the page. | `src/app/live-preview.tsx`, `src/app/ItemPage.tsx`, `src/app/entry-form.tsx`, `src/config.tsx`                        |
 | devinchaloux.10 | **Live preview on the create page.** A new entry can be previewed before its first save. The pane's wiring moved into `useLivePreview` and `LivePreviewButton`, which both pages use.                                                                                                                                                                                                                                                                            | `src/app/live-preview.tsx`, `src/app/create-item.tsx`, `src/app/ItemPage.tsx`                                         |
+| devinchaloux.11 | **Fixes for pages as documents.** The Live preview button shows only on entries laid out as content (it did nothing on form-only collections). The word count says "x of y" only for selected text, not a selected block.                                                                                                                                                                                                                                        | `src/app/live-preview.tsx`, `src/form/fields/markdoc/editor/word-count.tsx`                                           |
 
 Only `@keystatic/core` is forked so far. The site still installs
 `@keystatic/astro` from npm, because nothing in it has needed to change.

@@ -8,6 +8,7 @@
 // not prose and don't count.
 
 import { Node } from 'prosemirror-model';
+import { TextSelection } from 'prosemirror-state';
 import { useMemo } from 'react';
 import { css, tokenSchema } from '@keystar/ui/style';
 
@@ -39,7 +40,11 @@ export function WordCount() {
   const total = useMemo(() => countDocWords(doc), [doc]);
   const selected = useMemo(
     () =>
-      selection.empty ? null : countDocWords(doc, selection.from, selection.to),
+      // Only selected text counts as "of": a selected block (a page's hero,
+      // say) is a node selection, and "0 of 197 words" says nothing.
+      selection.empty || !(selection instanceof TextSelection)
+        ? null
+        : countDocWords(doc, selection.from, selection.to),
     [doc, selection]
   );
   return (
