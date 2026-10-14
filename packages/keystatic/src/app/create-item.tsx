@@ -51,6 +51,7 @@ import {
   usePreviewPropsFromY,
 } from './preview-props';
 import { useDuplicateSlug } from './duplicate-slug';
+import { LivePreviewButton, useLivePreview } from './live-preview';
 import { getYjsValFromParsedValue } from '../form/yjs-props-value';
 import { setValueToPreviewProps } from '../form/get-value';
 import { copyEntryToClipboard, getPastedEntry } from './entry-clipboard';
@@ -526,6 +527,12 @@ function CreateItemInner(props: {
   );
 
   const isBelowDesktop = useMediaQuery(breakpointQueries.below.desktop);
+  // FORK (devinchaloux): the live preview works before the first save too.
+  const livePreview = useLivePreview({
+    config,
+    collection: props.collection,
+    state: props.state,
+  });
 
   return (
     <>
@@ -539,6 +546,9 @@ function CreateItemInner(props: {
               isIndeterminate
               size="small"
             />
+          )}
+          {livePreview.available && (
+            <LivePreviewButton open={livePreview.open} />
           )}
           <ActionGroup
             buttonLabelBehavior="hide"
@@ -602,6 +612,7 @@ function CreateItemInner(props: {
             entryLayout={collectionConfig.entryLayout}
             formatInfo={formatInfo}
             slugField={slugInfo}
+            livePreview={livePreview.pane}
           />
         </Flex>
       </PageRoot>

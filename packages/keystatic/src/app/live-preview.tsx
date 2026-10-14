@@ -14,11 +14,31 @@
 // X-Preview-Problems header, a URI-encoded JSON list) show above the page.
 // Remembered across reloads, as focus mode is.
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  ReactElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
+import { ActionButton } from '@keystar/ui/button';
+import { Icon } from '@keystar/ui/icon';
+import { eyeIcon } from '@keystar/ui/icon/icons/eyeIcon';
+import { eyeOffIcon } from '@keystar/ui/icon/icons/eyeOffIcon';
 import { Flex } from '@keystar/ui/layout';
 import { css, tokenSchema } from '@keystar/ui/style';
+import { Tooltip, TooltipTrigger } from '@keystar/ui/tooltip';
 import { Text } from '@keystar/ui/typography';
+
+import { Config } from '../config';
+import { serializeEntryToFiles } from './updating';
+import {
+  getCollectionFormat,
+  getCollectionItemPath,
+  getSlugFromState,
+} from './utils';
 
 // ── Open or closed ───────────────────────────────────────────────────────────
 
@@ -54,6 +74,70 @@ export function useLivePreviewOpen(): boolean {
     },
     () => open,
     () => false
+  );
+}
+
+// ── On an entry page ─────────────────────────────────────────────────────────
+
+/**
+ * The live preview for an entry being edited or created: whether the site
+ * offers one, whether it's open, and the pane to show in place of the fields.
+ * The entry is sent as the file a save would write, at its current slug.
+ */
+export function useLivePreview(args: {
+  config: Config;
+  collection: string;
+  state: Record<string, unknown>;
+}): { available: boolean; open: boolean; pane: ReactElement | undefined } {
+  const { config, collection, state } = args;
+  const url = config.ui?.livePreview?.url;
+  const open = useLivePreviewOpen() && !!url;
+  const collectionConfig = config.collections![collection];
+  const slug = getSlugFromState(collectionConfig, state);
+  const text = useMemo(() => {
+    if (!open) return '';
+    const [file] = serializeEntryToFiles({
+      basePath: getCollectionItemPath(config, collection, slug),
+      format: getCollectionFormat(config, collection),
+      schema: collectionConfig.schema,
+      slug: { field: collectionConfig.slugField, value: slug },
+      state,
+    });
+    return new TextDecoder().decode(file.contents);
+  }, [open, config, collection, slug, collectionConfig, state]);
+  return {
+    available: !!url,
+    open,
+    pane:
+      open && url ? (
+        <LivePreviewPane
+          url={url}
+          collection={collection}
+          slug={slug}
+          text={text}
+        />
+      ) : undefined,
+  };
+}
+
+/** The header button that opens and closes the pane. */
+export function LivePreviewButton(props: { open: boolean }) {
+  return (
+    <TooltipTrigger>
+      <ActionButton
+        prominence="low"
+        aria-label={props.open ? 'Hide live preview' : 'Live preview'}
+        aria-pressed={props.open}
+        onPress={toggleLivePreview}
+      >
+        <Icon src={props.open ? eyeOffIcon : eyeIcon} />
+      </ActionButton>
+      <Tooltip>
+        {props.open
+          ? 'Hide preview (show the fields)'
+          : 'Preview the page as you write'}
+      </Tooltip>
+    </TooltipTrigger>
   );
 }
 

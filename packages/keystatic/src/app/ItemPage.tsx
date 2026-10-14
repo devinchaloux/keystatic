@@ -95,13 +95,7 @@ import { toastQueue } from '@keystar/ui/toast';
 import { maximize2Icon } from '@keystar/ui/icon/icons/maximize2Icon';
 import { minimize2Icon } from '@keystar/ui/icon/icons/minimize2Icon';
 import { toggleFocusMode, useFocusMode } from './focus-mode';
-import {
-  LivePreviewPane,
-  toggleLivePreview,
-  useLivePreviewOpen,
-} from './live-preview';
-import { eyeIcon } from '@keystar/ui/icon/icons/eyeIcon';
-import { eyeOffIcon } from '@keystar/ui/icon/icons/eyeOffIcon';
+import { LivePreviewButton, useLivePreview } from './live-preview';
 import { Tooltip, TooltipTrigger } from '@keystar/ui/tooltip';
 
 type ItemPageProps = {
@@ -161,30 +155,12 @@ function ItemPageInner(
 
   const slugInfo = useSlugFieldInfo(collection, itemSlug);
 
-  // FORK (devinchaloux): the live preview, when the site offers one. It is
-  // sent the entry as the file a save would write, at its current slug.
-  const livePreviewUrl = config.ui?.livePreview?.url;
-  const livePreviewOpen = useLivePreviewOpen() && !!livePreviewUrl;
-  const previewSlug = getSlugFromState(collectionConfig, props.state);
-  const previewText = useMemo(() => {
-    if (!livePreviewOpen) return '';
-    const [file] = serializeEntryToFiles({
-      basePath: getCollectionItemPath(config, collection, previewSlug),
-      format: formatInfo,
-      schema: collectionConfig.schema,
-      slug: { field: collectionConfig.slugField, value: previewSlug },
-      state: props.state,
-    });
-    return new TextDecoder().decode(file.contents);
-  }, [
-    livePreviewOpen,
+  // FORK (devinchaloux): the live preview, when the site offers one.
+  const livePreview = useLivePreview({
     config,
     collection,
-    previewSlug,
-    formatInfo,
-    collectionConfig,
-    props.state,
-  ]);
+    state: props.state,
+  });
 
   const [deleteResult, deleteItem, resetDeleteItem] = useDeleteItem({
     initialFiles: props.initialFiles,
@@ -295,7 +271,9 @@ function ItemPageInner(
             onReset={props.onReset}
             viewHref={viewHref}
             previewHref={previewHref}
-            livePreview={livePreviewUrl ? { open: livePreviewOpen } : undefined}
+            livePreview={
+              livePreview.available ? { open: livePreview.open } : undefined
+            }
           />
         }
         {...props}
@@ -324,16 +302,7 @@ function ItemPageInner(
             entryLayout={collectionConfig.entryLayout}
             formatInfo={formatInfo}
             slugField={slugInfo}
-            livePreview={
-              livePreviewOpen && livePreviewUrl ? (
-                <LivePreviewPane
-                  url={livePreviewUrl}
-                  collection={collection}
-                  slug={previewSlug}
-                  text={previewText}
-                />
-              ) : undefined
-            }
+            livePreview={livePreview.pane}
           />
         </Box>
         <DialogContainer
@@ -715,25 +684,7 @@ function HeaderActions(props: {
       <PresenceAvatars />
       {indicatorElement}
       {/* FORK (devinchaloux): the live preview, the page beside the prose. */}
-      {props.livePreview && (
-        <TooltipTrigger>
-          <ActionButton
-            prominence="low"
-            aria-label={
-              props.livePreview.open ? 'Hide live preview' : 'Live preview'
-            }
-            aria-pressed={props.livePreview.open}
-            onPress={toggleLivePreview}
-          >
-            <Icon src={props.livePreview.open ? eyeOffIcon : eyeIcon} />
-          </ActionButton>
-          <Tooltip>
-            {props.livePreview.open
-              ? 'Hide preview (show the fields)'
-              : 'Preview the page as you write'}
-          </Tooltip>
-        </TooltipTrigger>
-      )}
+      {props.livePreview && <LivePreviewButton open={props.livePreview.open} />}
       {/* FORK (devinchaloux): focus mode, just the prose. */}
       <TooltipTrigger>
         <ActionButton
