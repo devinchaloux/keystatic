@@ -4,7 +4,7 @@ import {
   SplitPanePrimary,
   SplitPaneSecondary,
 } from '@keystar/ui/split-view';
-import { ReactNode, createContext, useContext } from 'react';
+import { ReactElement, ReactNode, createContext, useContext } from 'react';
 
 import { ReadonlyPropPath } from '../form/fields/document/DocumentEditor/component-blocks/utils';
 import {
@@ -72,6 +72,7 @@ export function FormForEntry({
   slugField,
   entryLayout,
   previewProps: props,
+  livePreview,
 }: {
   previewProps: GenericPreviewProps<
     ObjectField<Record<string, ComponentSchema>>,
@@ -81,6 +82,8 @@ export function FormForEntry({
   entryLayout: 'content' | 'form' | undefined;
   forceValidation: boolean | undefined;
   slugField: SlugFieldInfo | undefined;
+  /** FORK (devinchaloux): the live preview pane, shown in place of the fields. */
+  livePreview?: ReactElement;
 }) {
   const isAboveMobile = useContentPanelQuery({ above: 'mobile' });
   const focused = useFocusMode();
@@ -111,12 +114,19 @@ export function FormForEntry({
       <PathContextProvider value={emptyArray}>
         <SlugFieldProvider value={slugField}>
           <SplitView
-            // FORK (devinchaloux): focus mode hides the fields panel.
+            // FORK (devinchaloux): focus mode hides the fields panel. The
+            // preview takes its place, wider, with a width of its own: a
+            // page wants more room than a column of fields.
+            key={livePreview ? 'preview' : 'fields'}
             isCollapsed={focused}
-            autoSaveId="keystatic-content-split-view"
-            defaultSize={320}
-            minSize={240}
-            maxSize={480}
+            autoSaveId={
+              livePreview
+                ? 'keystatic-preview-split-view'
+                : 'keystatic-content-split-view'
+            }
+            defaultSize={livePreview ? 600 : 320}
+            minSize={livePreview ? 360 : 240}
+            maxSize={livePreview ? 1100 : 480}
             flex
           >
             <SplitPaneSecondary>
@@ -132,17 +142,19 @@ export function FormForEntry({
               </EntryLayoutSplitPaneContext.Provider>
             </SplitPaneSecondary>
             <SplitPanePrimary>
-              <EntryLayoutSplitPaneContext.Provider value="side">
-                <ScrollView>
-                  <Box padding={RESPONSIVE_PADDING}>
-                    <InnerFormValueContentFromPreviewProps
-                      forceValidation={forceValidation}
-                      omitFieldAtPath={contentField.path}
-                      {...props}
-                    />
-                  </Box>
-                </ScrollView>
-              </EntryLayoutSplitPaneContext.Provider>
+              {livePreview ?? (
+                <EntryLayoutSplitPaneContext.Provider value="side">
+                  <ScrollView>
+                    <Box padding={RESPONSIVE_PADDING}>
+                      <InnerFormValueContentFromPreviewProps
+                        forceValidation={forceValidation}
+                        omitFieldAtPath={contentField.path}
+                        {...props}
+                      />
+                    </Box>
+                  </ScrollView>
+                </EntryLayoutSplitPaneContext.Provider>
+              )}
             </SplitPanePrimary>
           </SplitView>
         </SlugFieldProvider>

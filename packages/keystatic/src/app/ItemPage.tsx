@@ -95,6 +95,13 @@ import { toastQueue } from '@keystar/ui/toast';
 import { maximize2Icon } from '@keystar/ui/icon/icons/maximize2Icon';
 import { minimize2Icon } from '@keystar/ui/icon/icons/minimize2Icon';
 import { toggleFocusMode, useFocusMode } from './focus-mode';
+import {
+  LivePreviewPane,
+  toggleLivePreview,
+  useLivePreviewOpen,
+} from './live-preview';
+import { eyeIcon } from '@keystar/ui/icon/icons/eyeIcon';
+import { eyeOffIcon } from '@keystar/ui/icon/icons/eyeOffIcon';
 import { Tooltip, TooltipTrigger } from '@keystar/ui/tooltip';
 
 type ItemPageProps = {
@@ -153,6 +160,31 @@ function ItemPageInner(
   const { push, replace } = router;
 
   const slugInfo = useSlugFieldInfo(collection, itemSlug);
+
+  // FORK (devinchaloux): the live preview, when the site offers one. It is
+  // sent the entry as the file a save would write, at its current slug.
+  const livePreviewUrl = config.ui?.livePreview?.url;
+  const livePreviewOpen = useLivePreviewOpen() && !!livePreviewUrl;
+  const previewSlug = getSlugFromState(collectionConfig, props.state);
+  const previewText = useMemo(() => {
+    if (!livePreviewOpen) return '';
+    const [file] = serializeEntryToFiles({
+      basePath: getCollectionItemPath(config, collection, previewSlug),
+      format: formatInfo,
+      schema: collectionConfig.schema,
+      slug: { field: collectionConfig.slugField, value: previewSlug },
+      state: props.state,
+    });
+    return new TextDecoder().decode(file.contents);
+  }, [
+    livePreviewOpen,
+    config,
+    collection,
+    previewSlug,
+    formatInfo,
+    collectionConfig,
+    props.state,
+  ]);
 
   const [deleteResult, deleteItem, resetDeleteItem] = useDeleteItem({
     initialFiles: props.initialFiles,
@@ -263,6 +295,7 @@ function ItemPageInner(
             onReset={props.onReset}
             viewHref={viewHref}
             previewHref={previewHref}
+            livePreview={livePreviewUrl ? { open: livePreviewOpen } : undefined}
           />
         }
         {...props}
@@ -291,6 +324,16 @@ function ItemPageInner(
             entryLayout={collectionConfig.entryLayout}
             formatInfo={formatInfo}
             slugField={slugInfo}
+            livePreview={
+              livePreviewOpen && livePreviewUrl ? (
+                <LivePreviewPane
+                  url={livePreviewUrl}
+                  collection={collection}
+                  slug={previewSlug}
+                  text={previewText}
+                />
+              ) : undefined
+            }
           />
         </Box>
         <DialogContainer
@@ -556,6 +599,8 @@ function HeaderActions(props: {
   onPaste: () => void;
   previewHref?: string;
   viewHref?: string;
+  /** FORK (devinchaloux): present when the site offers a live preview. */
+  livePreview?: { open: boolean };
 }) {
   let {
     formID,
@@ -669,6 +714,26 @@ function HeaderActions(props: {
     <Flex alignItems="center" gap={{ mobile: 'small', tablet: 'regular' }}>
       <PresenceAvatars />
       {indicatorElement}
+      {/* FORK (devinchaloux): the live preview, the page beside the prose. */}
+      {props.livePreview && (
+        <TooltipTrigger>
+          <ActionButton
+            prominence="low"
+            aria-label={
+              props.livePreview.open ? 'Hide live preview' : 'Live preview'
+            }
+            aria-pressed={props.livePreview.open}
+            onPress={toggleLivePreview}
+          >
+            <Icon src={props.livePreview.open ? eyeOffIcon : eyeIcon} />
+          </ActionButton>
+          <Tooltip>
+            {props.livePreview.open
+              ? 'Hide preview (show the fields)'
+              : 'Preview the page as you write'}
+          </Tooltip>
+        </TooltipTrigger>
+      )}
       {/* FORK (devinchaloux): focus mode, just the prose. */}
       <TooltipTrigger>
         <ActionButton

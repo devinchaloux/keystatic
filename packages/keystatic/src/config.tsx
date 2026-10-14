@@ -121,6 +121,15 @@ type UserInterface<Collections, Singletons> = {
   onPasteUrl?: (
     url: string
   ) => { component: string; props: Record<string, unknown> } | null | undefined;
+  /**
+   * FORK (devinchaloux): a Preview button on entries, showing the page the
+   * entry will become beside the prose as it's edited. The site draws it:
+   * the entry, unsaved, is POSTed to `url` as JSON `{ collection, slug, text }`
+   * (`text` is the file a save would write) and the HTML response is shown.
+   * A response header `X-Preview-Problems` (URI-encoded JSON list of
+   * strings) is shown above the page.
+   */
+  livePreview?: { url: string };
   desk?: (props: {
     basePath: string;
     navigate: (href: string) => void;
