@@ -70,6 +70,20 @@ type UserInterface<Collections, Singletons> = {
     | (keyof Singletons & string)
     | typeof NAVIGATION_DIVIDER_KEY
   >;
+  /**
+   * FORK (devinchaloux): dress the admin UI in the site's own look.
+   *
+   * The UI kit reads every colour, font and radius from `--kui-*` custom
+   * properties, so a site can retheme it by overriding those, without
+   * touching a component. The values belong to the site (they mirror its
+   * design tokens), so they live in its config, not in this package.
+   */
+  theme?: {
+    /** CSS added after the UI kit's own; typically `--kui-*` overrides. */
+    css?: string;
+    /** Stylesheet URL for the fonts `css` names. Replaces the default Inter. */
+    fonts?: string;
+  };
 };
 
 type Navigation<K> = K[] | { [section: string]: K[] };

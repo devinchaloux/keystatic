@@ -6,7 +6,7 @@ shaped around one person's writing: dense cross-references, music examples,
 citations, records from a research corpus. Upstream Keystatic is built for
 general use and changes slowly, so the site now owns its copy.
 
-**Current release:** `devinchaloux.1`, based on `@keystatic/core@0.6.9`.
+**Current release:** `devinchaloux.2`, based on `@keystatic/core@0.6.9`.
 
 The site that uses it is private (`devinchaloux/devinchaloux-site`). This repo
 holds only editor code, never site content.
@@ -29,11 +29,14 @@ an upstream change into our branch is a deliberate merge.
 Every change is marked `FORK (devinchaloux)` in a comment at the site of the
 change, so `git grep "FORK (devinchaloux)"` lists them all. Each has a test.
 
-| Release        | Change                                                                                                                                                                                                                                                          | Where                                                                                                             |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| devinchaloux.1 | **Inserting an inline component opens its form.** Upstream drops an empty chip and needs two clicks (select it, then the pencil) before you can fill it in. Previously a find-and-replace patch on the compiled code, applied at install time in the site repo. | `packages/keystatic/src/form/fields/markdoc/editor/commands/misc.ts` (+ `misc.test.ts`), `.../popovers/index.tsx` |
-| devinchaloux.1 | `forkRelease` field in `packages/keystatic/package.json`, so the site can check which build it has.                                                                                                                                                             | `packages/keystatic/package.json`                                                                                 |
-| devinchaloux.1 | The release workflow.                                                                                                                                                                                                                                           | `.github/workflows/fork-release.yml`                                                                              |
+| Release        | Change                                                                                                                                                                                                                                                                                                                                 | Where                                                                                                             |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| devinchaloux.1 | **Inserting an inline component opens its form.** Upstream drops an empty chip and needs two clicks (select it, then the pencil) before you can fill it in. Previously a find-and-replace patch on the compiled code, applied at install time in the site repo.                                                                        | `packages/keystatic/src/form/fields/markdoc/editor/commands/misc.ts` (+ `misc.test.ts`), `.../popovers/index.tsx` |
+| devinchaloux.1 | `forkRelease` field in `packages/keystatic/package.json`, so the site can check which build it has.                                                                                                                                                                                                                                    | `packages/keystatic/package.json`                                                                                 |
+| devinchaloux.1 | The release workflow.                                                                                                                                                                                                                                                                                                                  | `.github/workflows/fork-release.yml`                                                                              |
+| devinchaloux.2 | **`ui.theme` config option.** The site passes CSS (overrides of the UI kit's `--kui-*` variables) and a font stylesheet, so the admin wears the site's palette and type. The values live in the site repo.                                                                                                                             | `packages/keystatic/src/config.tsx`, `src/app/provider.tsx`                                                       |
+| devinchaloux.2 | **Collection tables read like a list of writing.** No Slug column when the slug's own field is shown; on-checkboxes as badges ("Draft"), off ones blank; dates as "Sep 6, 2026"; newest first when there's a date, else by the leading column; the chosen sort remembered per collection; search across every column; regular density. | `src/app/collection-table.ts` (+ `.test.ts`), `src/app/CollectionPage.tsx`                                        |
+| devinchaloux.2 | **Pickers list entries by name.** Relationship and multi-relationship pickers show each entry's slug-field text ("Sandstorm — Darude (1999)") with the slug beneath, and search by name.                                                                                                                                               | `src/app/useEntryLabels.ts`, `src/form/fields/relationship/ui.tsx`, `src/form/fields/multiRelationship/ui.tsx`    |
 
 Only `@keystatic/core` is forked so far. The site still installs
 `@keystatic/astro` from npm, because nothing in it has needed to change.
@@ -91,11 +94,10 @@ Sync fork included, and need upstream's secrets; default branch set to
 
 1. On GitHub, **Sync fork** on `main`.
 2. Merge upstream's release into `devinchaloux`. Its tag
-   (`@keystatic/core@0.6.10`) lives on Thinkmill/keystatic, not here (Sync
-   fork copies commits, not tags), so fetch it from there, or merge the
-   "Version Packages" commit on `main` that published it. Resolve conflicts in
-   favour of keeping each `FORK` change working; the tests say whether it
-   does.
+   (`@keystatic/core@0.6.10`) lives on Thinkmill/keystatic, not here (Sync fork
+   copies commits, not tags), so fetch it from there, or merge the "Version
+   Packages" commit on `main` that published it. Resolve conflicts in favour of
+   keeping each `FORK` change working; the tests say whether it does.
 3. Bump `forkRelease`, push, and ship as above.
 
 Upstream sees a few dozen commits a year, mostly maintenance, so this is

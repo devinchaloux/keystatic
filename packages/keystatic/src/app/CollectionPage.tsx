@@ -17,6 +17,7 @@ import { searchXIcon } from '@keystar/ui/icon/icons/searchXIcon';
 import { diffIcon } from '@keystar/ui/icon/icons/diffIcon';
 import { plusSquareIcon } from '@keystar/ui/icon/icons/plusSquareIcon';
 import { dotSquareIcon } from '@keystar/ui/icon/icons/dotSquareIcon';
+import { Badge } from '@keystar/ui/badge';
 import { TextLink } from '@keystar/ui/link';
 import { ProgressCircle } from '@keystar/ui/progress';
 import { SearchField } from '@keystar/ui/search-field';
@@ -39,6 +40,17 @@ import { Heading, Text } from '@keystar/ui/typography';
 
 import { Config } from '../config';
 import { sortBy } from './collection-sort';
+import {
+  cellDisplay,
+  defaultSort,
+  findDateColumn,
+  SLUG_COLUMN,
+  loadSort,
+  matchesSearch,
+  saveSort,
+  showSlugColumn,
+  Sort,
+} from './collection-table';
 import l10nMessages from './l10n';
 import { useRouter } from './router';
 import { EmptyState } from './shell/empty-state';
@@ -278,7 +290,6 @@ function CollectionPageContent(props: CollectionPageContentProps) {
   return <CollectionTable {...props} trees={trees.merged.data} />;
 }
 
-const SLUG = '@@slug';
 const STATUS = '@@status';
 
 function CollectionTable(
@@ -295,10 +306,11 @@ function CollectionTable(
   const currentBranch = useCurrentBranch();
   let isLocalMode = isLocalConfig(props.config);
   let router = useRouter();
-  let [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
-    column: SLUG,
-    direction: 'ascending',
-  });
+  // FORK (devinchaloux): the person's last sort for this collection, if any;
+  // otherwise a default chosen once the data shows whether there's a date.
+  let [chosenSort, setChosenSort] = useState<Sort | null>(() =>
+    loadSort(props.collection)
+  );
   let hideStatusColumn =
     isLocalMode || currentBranch === repoInfo?.defaultBranch;
 
@@ -426,18 +438,35 @@ function CollectionTable(
     });
   }, [entriesWithStatus, mainFiles]);
 
+  const shownColumns = useMemo(
+    () => collection.columns ?? [],
+    [collection.columns]
+  );
+  const slugColumnShown = showSlugColumn(shownColumns, collection.slugField);
+  const dateColumn = useMemo(
+    () =>
+      findDateColumn(
+        shownColumns,
+        entriesWithData.map(entry => entry.data)
+      ),
+    [shownColumns, entriesWithData]
+  );
+  const sortDescriptor: SortDescriptor =
+    chosenSort ?? defaultSort(shownColumns, collection.slugField, dateColumn);
+
+  // FORK: search every shown column, so "Darude" finds Sandstorm.
   const filteredItems = useMemo(() => {
     return entriesWithData.filter(item =>
-      item.name.toLowerCase().includes(searchTerm.toLowerCase())
+      matchesSearch(item.name, item.data, shownColumns, searchTerm)
     );
-  }, [entriesWithData, searchTerm]);
+  }, [entriesWithData, searchTerm, shownColumns]);
   const sortedItems = useMemo(() => {
     return [...filteredItems].sort((a, b) => {
       const readCol = (
         row: typeof a,
         other: Record<string, unknown> | undefined
       ) => {
-        if (sortDescriptor.column === SLUG) {
+        if (sortDescriptor.column === SLUG_COLUMN) {
           return collection.parseSlugForSort?.(row.name) ?? row.name;
         }
         if (sortDescriptor.column === STATUS) {
@@ -466,10 +495,8 @@ function CollectionTable(
         ...(hideStatusColumn
           ? []
           : [{ name: 'Status', key: STATUS, minWidth: 32, width: 32 }]),
-        {
-          name: 'Slug',
-          key: SLUG,
-        },
+        // FORK: no Slug column when the slug's own field is already shown.
+        ...(slugColumnShown ? [{ name: 'Slug', key: SLUG_COLUMN }] : []),
         ...collection.columns.map(column => {
           const schema = collection.schema[column];
           return {
@@ -480,20 +507,25 @@ function CollectionTable(
       ];
     }
     return hideStatusColumn
-      ? [{ name: 'Name', key: SLUG }]
+      ? [{ name: 'Name', key: SLUG_COLUMN }]
       : [
           { name: 'Status', key: STATUS, minWidth: 32, width: 32 },
-          { name: 'Name', key: SLUG },
+          { name: 'Name', key: SLUG_COLUMN },
         ];
-  }, [collection, hideStatusColumn]);
+  }, [collection, hideStatusColumn, slugColumnShown]);
 
   return (
     <TableView
       aria-labelledby="page-title"
       selectionMode="none"
-      onSortChange={setSortDescriptor}
+      onSortChange={descriptor => {
+        const sort = descriptor as Sort;
+        setChosenSort(sort);
+        saveSort(props.collection, sort);
+      }}
       sortDescriptor={sortDescriptor}
-      density="spacious"
+      // FORK: regular, not spacious, so a screen holds a third more rows.
+      density="regular"
       overflowMode="truncate"
       prominence="low"
       onAction={key => {
@@ -554,7 +586,7 @@ function CollectionTable(
             </Cell>
           );
           const nameCell = (
-            <Cell key={SLUG + item.name} textValue={item.name as string}>
+            <Cell key={SLUG_COLUMN + item.name} textValue={item.name as string}>
               <Text weight="medium">{item.name as string}</Text>
             </Cell>
           );
@@ -563,19 +595,43 @@ function CollectionTable(
               <Row key={'key:' + item.name}>
                 {[
                   ...(hideStatusColumn ? [] : [statusCell]),
-                  nameCell,
-                  ...collection.columns.map(column => {
-                    let val;
-                    val = item.data?.[column];
-
-                    if (val == null) {
-                      val = undefined;
-                    } else {
-                      val = val + '';
-                    }
+                  ...(slugColumnShown ? [nameCell] : []),
+                  ...collection.columns.map((column, index) => {
+                    const schema = collection.schema[column];
+                    const label = ('label' in schema && schema.label) || column;
+                    // FORK: badges for on-checkboxes, readable dates. The
+                    // slug field's column stands in for the hidden Slug
+                    // column, so it shows the slug until the data loads (or
+                    // when an entry's file can't be read) rather than nothing.
+                    const value = item.data?.[column];
+                    const display = cellDisplay(
+                      column === collection.slugField && value == null
+                        ? item.name
+                        : value,
+                      label,
+                      props.config.locale || 'en-US'
+                    );
+                    const text = display.kind === 'empty' ? '' : display.text;
                     return (
-                      <Cell key={column + item.name} textValue={val}>
-                        <Text weight="medium">{val}</Text>
+                      <Cell key={column + item.name} textValue={text}>
+                        {display.kind === 'badge' ? (
+                          <Badge tone="caution">{display.text}</Badge>
+                        ) : (
+                          <Text
+                            weight={
+                              index === 0 && !slugColumnShown
+                                ? 'medium'
+                                : 'regular'
+                            }
+                            color={
+                              index === 0 && !slugColumnShown
+                                ? 'neutralEmphasis'
+                                : 'neutral'
+                            }
+                          >
+                            {text}
+                          </Text>
+                        )}
                       </Cell>
                     );
                   }),

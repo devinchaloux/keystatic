@@ -14,6 +14,7 @@ import { Text } from '@keystar/ui/typography';
 
 import { FormFieldInputProps } from '../../api';
 import { useSlugsInCollection } from '../../../app/useSlugsInCollection';
+import { useEntryLabels } from '../../../app/useEntryLabels';
 import { ExtraFieldInputProps } from '../../form-from-preview';
 import { validateMultiRelationshipLength } from './validate';
 
@@ -30,9 +31,11 @@ export function MultiRelationshipInput(
   }, [props.value]);
   const [blurred, onBlur] = useReducer(() => true, false);
   const slugs = useSlugsInCollection(props.collection);
+  // FORK (devinchaloux): list entries by name, not slug. See useEntryLabels.
+  const labels = useEntryLabels(props.collection);
   const options = useMemo(() => {
-    return slugs.map(slug => ({ slug }));
-  }, [slugs]);
+    return slugs.map(slug => ({ slug, label: labels.get(slug) ?? slug }));
+  }, [slugs, labels]);
 
   const _errorMessage =
     (props.forceValidation || blurred) &&
@@ -66,7 +69,11 @@ export function MultiRelationshipInput(
         disabledKeys={['No more items…']}
         onBlur={onBlur}
         autoFocus={props.autoFocus}
-        defaultItems={items.length ? items : [{ slug: 'No more items…' }]}
+        defaultItems={
+          items.length
+            ? items
+            : [{ slug: 'No more items…', label: 'No more items…' }]
+        }
         isReadOnly={items.length === 0}
         isRequired={
           props.validation?.length?.min !== undefined &&
@@ -75,7 +82,18 @@ export function MultiRelationshipInput(
         errorMessage={errorMessage}
         width="auto"
       >
-        {item => <Item key={item.slug}>{item.slug}</Item>}
+        {item => (
+          <Item key={item.slug} textValue={item.label}>
+            {item.label === item.slug ? (
+              item.label
+            ) : (
+              <>
+                <Text>{item.label}</Text>
+                <Text slot="description">{item.slug}</Text>
+              </>
+            )}
+          </Item>
+        )}
       </Combobox>
       {true ? (
         <MultiRelationshipListView
@@ -85,6 +103,7 @@ export function MultiRelationshipInput(
             props.onChange(value.map(x => x.key));
           }}
           elements={valAsObjects}
+          labels={labels}
           aria-label={props.label}
         />
       ) : null}
@@ -96,6 +115,7 @@ function MultiRelationshipListView(
   props: ExtraFieldInputProps & {
     'aria-label': string;
     elements: { key: string }[];
+    labels: Map<string, string>;
     onChange: (elements: { key: string }[]) => void;
   }
 ) {
@@ -174,7 +194,8 @@ function MultiRelationshipListView(
         })}
       >
         {item => {
-          const label = item.key;
+          // FORK (devinchaloux): the chosen entries by name too.
+          const label = props.labels.get(item.key) ?? item.key;
           return (
             <Item key={item.key} textValue={label}>
               {label}

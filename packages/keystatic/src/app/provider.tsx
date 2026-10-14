@@ -214,9 +214,20 @@ export default function Provider({
       >
         <ClientSideOnlyDocumentElement bodyBackground="surface" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          href={
+            config.ui?.theme?.fonts ??
+            'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
+          }
           rel="stylesheet"
         />
+        {/* FORK (devinchaloux): the site's theme, after the UI kit's tokens
+            in document order so equal-specificity overrides win. */}
+        {config.ui?.theme?.css && (
+          <style
+            data-keystatic-theme=""
+            dangerouslySetInnerHTML={{ __html: config.ui.theme.css }}
+          />
+        )}
         <UrqlProvider value={useMemo(() => createUrqlClient(config), [config])}>
           {children}
         </UrqlProvider>

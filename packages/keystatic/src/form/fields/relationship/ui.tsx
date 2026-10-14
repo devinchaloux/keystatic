@@ -2,6 +2,8 @@ import { Item } from 'react-stately/Item';
 import { Combobox } from '@keystar/ui/combobox';
 import { useReducer, useMemo, useState, useEffect } from 'react';
 import { useSlugsInCollection } from '../../../app/useSlugsInCollection';
+import { useEntryLabels } from '../../../app/useEntryLabels';
+import { Text } from '@keystar/ui/typography';
 import { FormFieldInputProps } from '../../api';
 
 export function RelationshipInput(
@@ -14,9 +16,11 @@ export function RelationshipInput(
 ) {
   const [blurred, onBlur] = useReducer(() => true, false);
   const slugs = useSlugsInCollection(props.collection);
+  // FORK (devinchaloux): list entries by name, not slug. See useEntryLabels.
+  const labels = useEntryLabels(props.collection);
   const options = useMemo(() => {
-    return slugs.map(slug => ({ slug }));
-  }, [slugs]);
+    return slugs.map(slug => ({ slug, label: labels.get(slug) ?? slug }));
+  }, [slugs, labels]);
 
   const _errorMessage =
     (props.forceValidation || blurred) &&
@@ -50,7 +54,18 @@ export function RelationshipInput(
       errorMessage={errorMessage}
       width="auto"
     >
-      {item => <Item key={item.slug}>{item.slug}</Item>}
+      {item => (
+        <Item key={item.slug} textValue={item.label}>
+          {item.label === item.slug ? (
+            item.label
+          ) : (
+            <>
+              <Text>{item.label}</Text>
+              <Text slot="description">{item.slug}</Text>
+            </>
+          )}
+        </Item>
+      )}
     </Combobox>
   );
 }
