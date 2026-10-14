@@ -1,23 +1,27 @@
-# FORK (devinchaloux): build @keystatic/core from the tagged commit and publish
-# it as a GitHub Release, which devinchaloux.com installs. See FORK.md.
+# FORK (devinchaloux): build @keystatic/core from this branch and publish it
+# as a GitHub Release, which devinchaloux.com installs. See FORK.md.
 #
 # Why a release built here, not a tarball built somewhere else and copied in:
 # anyone can follow the site's dependency back to the release, the release
 # back to this run, and this run back to the commit. Nothing compiled by hand
 # reaches the site.
 #
-# Triggered by pushing a tag named like `devinchaloux.2`. The tag must match
-# `forkRelease` in packages/keystatic/package.json, so a release can't
-# disagree with the label the site checks.
+# WHEN IT RELEASES. On every push to `devinchaloux` it reads `forkRelease` from
+# packages/keystatic/package.json. If no release has that name yet, it builds
+# and publishes one, and GitHub creates the tag of the same name. If one
+# exists, it stops after that check. So bumping `forkRelease` IS the release
+# step, and a push that doesn't bump it changes nothing published. (Tags were
+# the first trigger; Claude's cloud sessions can push branches but not tags.)
 name: Fork release
 
 on:
   push:
-    tags:
-      - 'devinchaloux.*'
+    branches:
+      - devinchaloux
+  workflow_dispatch:
 
 permissions:
-  contents: write # to create the release
+  contents: write # to create the release and its tag
 
 jobs:
   release:
@@ -25,19 +29,29 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # First, and before the install, so a push that doesn't bump forkRelease
+      # is done in seconds. The runner's own Node is enough to read one field.
+      - name: Is this release new?
+        id: label
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          label=$(node -p "require('./packages/keystatic/package.json').forkRelease")
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+          if gh release view "$label" >/dev/null 2>&1; then
+            echo "Release $label already exists; bump forkRelease to publish a new one."
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # Upstream's own setup: pinned corepack, Node 24, `pnpm install`. Its
       # postinstall runs the code generation the build needs.
       - uses: ./.github/actions/setup-deps
-
-      - name: Check the tag matches forkRelease
-        run: |
-          label=$(node -p "require('./packages/keystatic/package.json').forkRelease")
-          if [ "$label" != "$GITHUB_REF_NAME" ]; then
-            echo "Tag is $GITHUB_REF_NAME but forkRelease is $label. Bump one to match." >&2
-            exit 1
-          fi
+        if: steps.label.outputs.new == 'true'
 
       - name: TypeScript
+        if: steps.label.outputs.new == 'true'
         run: pnpm check:types
 
       # The `keystatic` project only: the package this releases. The design
@@ -45,24 +59,29 @@ jobs:
       # that package from npm unchanged, and 16 of them (toast, router,
       # drag-and-drop) failed on untouched 0.6.9 when the fork was made.
       - name: Unit tests
+        if: steps.label.outputs.new == 'true'
         run: pnpm exec vitest run --project keystatic
 
       - name: Build
+        if: steps.label.outputs.new == 'true'
         run: pnpm build:packages
 
       - name: Pack
+        if: steps.label.outputs.new == 'true'
         run: |
           mkdir release
           cd packages/keystatic
           pnpm pack --pack-destination ../../release
 
       - name: Publish the release
+        if: steps.label.outputs.new == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          LABEL: ${{ steps.label.outputs.label }}
         run: |
           cd release
           sha256sum *.tgz > SHA256SUMS
-          gh release create "$GITHUB_REF_NAME" *.tgz SHA256SUMS \
-            --title "$GITHUB_REF_NAME" \
+          gh release create "$LABEL" *.tgz SHA256SUMS \
+            --title "$LABEL" \
             --target "$GITHUB_SHA" \
             --notes "@keystatic/core built from $GITHUB_SHA by the Fork release workflow. FORK.md lists what this fork changes."

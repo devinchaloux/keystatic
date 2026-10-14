@@ -42,23 +42,28 @@ Only `@keystatic/core` is forked so far. The site still installs
 
 ## Making a release
 
-Releases are built by GitHub, not by hand: `.github/workflows/fork-release.yml`
-runs when a tag like `devinchaloux.2` is pushed. It checks the tag matches
-`forkRelease`, type-checks, runs the `@keystatic/core` tests, builds, and
-publishes a GitHub Release carrying `keystatic-core-<version>.tgz` and its
-SHA-256. The site installs that file by URL, so every step from commit to
-running editor can be traced.
+Releases are built by GitHub, not by hand. `.github/workflows/fork-release.yml`
+runs on every push to `devinchaloux` and reads `forkRelease`. When no release
+has that name yet, it type-checks, runs the `@keystatic/core` tests, builds, and
+publishes a GitHub Release (with a tag of the same name) carrying
+`keystatic-core-<version>.tgz` and its SHA-256. When one already exists, it
+stops after that check. The site installs the file by URL, so every step from
+commit to running editor can be traced.
 
-1. On `devinchaloux`, bump `forkRelease` in `packages/keystatic/package.json`
-   (`devinchaloux.1` → `devinchaloux.2`) and add the change to the table above.
-2. Commit, then tag that commit with the same name and push both:
-   `git tag devinchaloux.2 && git push origin devinchaloux devinchaloux.2`
-3. When the workflow finishes, point the site at the new release: in the site
-   repo, change `@keystatic/core` in `package.json` to the release URL
+1. On `devinchaloux`, make the change, add it to the table above, and bump
+   `forkRelease` in `packages/keystatic/package.json` (`devinchaloux.1` →
+   `devinchaloux.2`). Bumping it is what makes a release; a push without a bump
+   publishes nothing.
+2. Push the branch. The Actions tab shows the release being built.
+3. When it finishes, point the site at the new release: in the site repo, change
+   `@keystatic/core` in `package.json` to the release URL
    (`https://github.com/devinchaloux/keystatic/releases/download/devinchaloux.2/keystatic-core-0.6.9.tgz`)
    and run `npm install`. The lockfile records the file's fingerprint, so a
    release can't change underneath the site. `npm run check:keystatic` in the
    site confirms which release is installed.
+
+(The first version of the workflow ran on pushed tags. Claude's cloud sessions
+can push branches but not tags, so the release step became the bump instead.)
 
 **Building locally** (to try a change before releasing it). Needs Node 22+ and
 pnpm, pinned in `package.json`; `npx` fetches the right version.
@@ -85,10 +90,13 @@ Sync fork included, and need upstream's secrets; default branch set to
 ## Taking an upstream update
 
 1. On GitHub, **Sync fork** on `main`.
-2. Merge the upstream release tag (e.g. `@keystatic/core@0.6.10`) into
-   `devinchaloux`. Resolve conflicts in favour of keeping each `FORK` change
-   working; the tests say whether it does.
-3. Bump `forkRelease`, tag, and ship as above.
+2. Merge upstream's release into `devinchaloux`. Its tag
+   (`@keystatic/core@0.6.10`) lives on Thinkmill/keystatic, not here (Sync
+   fork copies commits, not tags), so fetch it from there, or merge the
+   "Version Packages" commit on `main` that published it. Resolve conflicts in
+   favour of keeping each `FORK` change working; the tests say whether it
+   does.
+3. Bump `forkRelease`, push, and ship as above.
 
 Upstream sees a few dozen commits a year, mostly maintenance, so this is
 occasional. There is no need to take every release.
