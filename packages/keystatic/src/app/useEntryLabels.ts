@@ -1,16 +1,17 @@
-// FORK (devinchaloux): the human name of every entry in a collection.
+// FORK (devinchaloux): every entry in a collection, read once and shared.
 //
 // Upstream's relationship pickers list slugs, because the only thing they
 // load is the file tree. For a collection whose slug is its title that's
 // tolerable; for one keyed by number (a corpus track lives at `16.yaml`) the
-// picker is a column of numbers. This reads each entry's slug field (the
-// text its slug was made from, e.g. "Sandstorm — Darude (1999)") so pickers
-// can show that instead.
+// picker is a column of numbers. `useCollectionEntries` reads each entry's
+// file so the admin can show what entries are, not what they're called on
+// disk: pickers use its names (`useEntryLabels`); a site's chip views and
+// dashboard use the fields and the raw text (it is exported publicly).
 //
-// Blobs are cached by hash (fetchBlob), so several pickers on one page, or
-// one opened many times, read each file once.
+// Blobs are cached by hash (fetchBlob), so every chip and picker on a page,
+// however many, reads each file once.
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useConfig } from './shell/context';
 import { useBaseCommit, useRepoInfo, useTree } from './shell/data';
 import {
@@ -23,10 +24,21 @@ import { fetchBlob } from './useItemData';
 import { loadDataFile } from './required-files';
 import { useData } from './useData';
 
-const EMPTY = new Map<string, string>();
+/** One entry as read from its file. */
+export type EntryRecord = {
+  /** The file's fields (frontmatter, or the YAML/JSON object). */
+  data: Record<string, unknown>;
+  /** The whole file as text: for a Markdoc entry, frontmatter and body. */
+  text: string;
+};
 
-/** slug → name, for the entries whose name could be read; others are absent. */
-export function useEntryLabels(collection: string): Map<string, string> {
+const EMPTY_ENTRIES = new Map<string, EntryRecord>();
+const decoder = new TextDecoder();
+
+/** slug → entry, for entries whose file could be read; others are absent. */
+export function useCollectionEntries(
+  collection: string
+): Map<string, EntryRecord> {
   const config = useConfig();
   const tree = useTree().current;
   const baseCommit = useBaseCommit();
@@ -34,16 +46,15 @@ export function useEntryLabels(collection: string): Map<string, string> {
 
   const state = useData(
     useCallback(async () => {
-      if (tree.kind !== 'loaded') return EMPTY;
-      const collectionConfig = config.collections?.[collection];
-      if (!collectionConfig) return EMPTY;
+      if (tree.kind !== 'loaded') return EMPTY_ENTRIES;
+      if (!config.collections?.[collection]) return EMPTY_ENTRIES;
       const formatInfo = getCollectionFormat(config, collection);
       const entries = getEntriesInCollectionWithTreeKey(
         config,
         collection,
         tree.data.tree
       );
-      const labels = new Map<string, string>();
+      const records = new Map<string, EntryRecord>();
       await Promise.all(
         entries.map(async entry => {
           try {
@@ -58,21 +69,37 @@ export function useEntryLabels(collection: string): Map<string, string> {
               repoInfo
             );
             const { loaded } = loadDataFile(blob, formatInfo);
-            // A slug field stores the text the slug came from under its own key.
-            const name = (loaded as Record<string, unknown> | null)?.[
-              collectionConfig.slugField
-            ];
-            if (typeof name === 'string' && name.trim()) {
-              labels.set(entry.slug, name.trim());
-            }
+            records.set(entry.slug, {
+              data: (loaded ?? {}) as Record<string, unknown>,
+              text: decoder.decode(blob),
+            });
           } catch {
-            // Unreadable entry: the picker falls back to its slug.
+            // Unreadable entry: left out; callers fall back to its slug.
           }
         })
       );
-      return labels;
+      return records;
     }, [config, collection, tree, baseCommit, repoInfo])
   );
 
-  return state.kind === 'loaded' ? state.data : EMPTY;
+  return state.kind === 'loaded' ? state.data : EMPTY_ENTRIES;
+}
+
+/** slug → name (the slug field's text), for the entries that have one. */
+export function useEntryLabels(collection: string): Map<string, string> {
+  const config = useConfig();
+  const entries = useCollectionEntries(collection);
+  const slugField = config.collections?.[collection]?.slugField;
+  return useMemo(() => {
+    const labels = new Map<string, string>();
+    if (!slugField) return labels;
+    for (const [slug, entry] of entries) {
+      // A slug field stores the text the slug came from under its own key.
+      const name = entry.data[slugField];
+      if (typeof name === 'string' && name.trim()) {
+        labels.set(slug, name.trim());
+      }
+    }
+    return labels;
+  }, [entries, slugField]);
 }

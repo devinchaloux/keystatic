@@ -95,6 +95,28 @@ type UserInterface<Collections, Singletons> = {
    * removable chips rather than a tall reorderable list.
    */
   density?: 'regular' | 'compact';
+  /**
+   * FORK (devinchaloux): typing `[[` in a Markdoc field opens a list of this
+   * collection's entries by name; choosing one inserts `component` with
+   * `entryField` pointing at it and `textField` holding the words. A last
+   * option parks the words, inserting the component with no entry yet.
+   */
+  referenceShortcut?: {
+    component: string;
+    collection: string;
+    entryField: string;
+    textField: string;
+  };
+  /**
+   * FORK (devinchaloux): a site's own panel at the top of the dashboard (the
+   * collection cards stay below it). `navigate` moves within the admin
+   * without a page load; `basePath` is where the admin lives, e.g.
+   * "/keystatic".
+   */
+  desk?: (props: {
+    basePath: string;
+    navigate: (href: string) => void;
+  }) => ReactElement | null;
 };
 
 type Navigation<K> = K[] | { [section: string]: K[] };

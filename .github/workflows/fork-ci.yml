@@ -1,18 +1,19 @@
-# FORK (devinchaloux): check every push to the fork's branch, so a broken
-# change shows up here, in minutes, rather than as a failed release.
+# FORK (devinchaloux): the release's checks (type-check, lint, the package's
+# tests), without the build, for a pull request into `devinchaloux` or on
+# demand from the Actions tab.
 #
-# Upstream's own CI (tests.yml) only runs on `main` and pull requests, and
-# `main` is kept as an untouched mirror of upstream, so none of it runs on our
-# changes. This runs the same checks the release does, minus the build.
+# Not on every push (Devin, 2026-10-14: not every check needs to run every
+# time). The release workflow already runs these same checks before it
+# publishes, so nothing reaches the site untested; a push that doesn't bump
+# `forkRelease` is work in progress, and running them there too only
+# repeated the release's work.
 name: Fork CI
 
 on:
-  push:
-    branches:
-      - devinchaloux
   pull_request:
     branches:
       - devinchaloux
+  workflow_dispatch:
 
 concurrency:
   group: fork-ci-${{ github.ref }}

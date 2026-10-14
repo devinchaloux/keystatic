@@ -10,6 +10,7 @@ import { InputRule } from './inputrules';
 import { shortcuts, simpleMarkShortcuts } from './shortcuts';
 import { MarkType, Node } from 'prosemirror-model';
 import { insertMenuInputRule } from '../autocomplete/insert-menu';
+import { referenceMenuInputRule } from '../autocomplete/reference-menu';
 
 const textShortcutRules = Object.entries(shortcuts).map(
   ([shortcut, replacement]): InputRule => ({
@@ -119,6 +120,8 @@ export function inputRulesForSchema({ nodes, marks, config }: EditorSchema) {
   }
 
   rules.push(insertMenuInputRule);
+  // FORK (devinchaloux): `[[` references; inert unless ui.referenceShortcut.
+  rules.push(referenceMenuInputRule);
   return rules;
 }
 

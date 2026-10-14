@@ -1,7 +1,7 @@
 {
   "name": "@keystatic/core",
   "version": "0.6.9",
-  "forkRelease": "devinchaloux.3",
+  "forkRelease": "devinchaloux.4",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -264,6 +264,12 @@
       "worker": "./src/form/fields/document/DocumentEditor/primitives/blank-for-react-server.tsx",
       "react-server": "./src/form/fields/document/DocumentEditor/primitives/blank-for-react-server.tsx",
       "default": "./src/form/fields/document/DocumentEditor/primitives/index.tsx"
+    },
+    "#entry-hooks": {
+      "node": "./src/app/entry-hooks-blank.ts",
+      "worker": "./src/app/entry-hooks-blank.ts",
+      "react-server": "./src/app/entry-hooks-blank.ts",
+      "default": "./src/app/entry-hooks.ts"
     },
     "#cloud-image-preview": {
       "node": "./src/component-blocks/blank-for-react-server.tsx",

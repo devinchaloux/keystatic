@@ -669,6 +669,11 @@ function PopoverInner(props: {
       >
         {props.decoration.kind === 'node' ? (
           <props.decoration.component
+            // FORK (devinchaloux): one popover per selected node. Without a
+            // key React keeps a single popover as the selection moves from
+            // chip to chip, so state set on mount (the open-on-insert check,
+            // consumeAutoOpen) never runs for the second chip inserted.
+            key={`${props.decoration.node.type.name}:${props.decoration.pos}`}
             {...props.decoration}
             state={props.state}
           />

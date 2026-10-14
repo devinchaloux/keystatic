@@ -16,11 +16,15 @@ import { useViewer } from '../shell/viewer-data';
 import { BranchSection } from './BranchSection';
 import { DashboardCards } from './DashboardCards';
 import { isLocalConfig } from '../utils';
+import { useRouter } from '../router';
 
 export function DashboardPage(props: { config: Config; basePath: string }) {
   const stringFormatter = useLocalizedStringFormatter(l10nMessages);
   const viewer = useViewer();
   const cloudInfo = useCloudInfo();
+
+  const router = useRouter();
+  const Desk = props.config.ui?.desk;
 
   const user = viewer
     ? { name: viewer.name ?? viewer.login, avatarUrl: viewer.avatarUrl }
@@ -38,6 +42,8 @@ export function DashboardPage(props: { config: Config; basePath: string }) {
           {user && <UserInfo user={user} manageAccount={!!cloudInfo} />}
 
           {!isLocalConfig(props.config) && <BranchSection />}
+          {/* FORK (devinchaloux): the site's desk, above the cards. */}
+          {Desk && <Desk basePath={props.basePath} navigate={router.push} />}
           <DashboardCards />
         </Flex>
       </PageBody>
