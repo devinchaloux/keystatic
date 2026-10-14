@@ -15,8 +15,10 @@ import { Text } from '@keystar/ui/typography';
 import { FormFieldInputProps } from '../../api';
 import { useSlugsInCollection } from '../../../app/useSlugsInCollection';
 import { useEntryLabels } from '../../../app/useEntryLabels';
+import { TagGroup } from '@keystar/ui/tag';
 import { ExtraFieldInputProps } from '../../form-from-preview';
 import { validateMultiRelationshipLength } from './validate';
+import { useCompactForms, useFieldHelp } from '../field-help';
 
 export function MultiRelationshipInput(
   props: FormFieldInputProps<string[]> & {
@@ -30,6 +32,7 @@ export function MultiRelationshipInput(
     return props.value.map(key => ({ key }));
   }, [props.value]);
   const [blurred, onBlur] = useReducer(() => true, false);
+  const compact = useCompactForms();
   const slugs = useSlugsInCollection(props.collection);
   // FORK (devinchaloux): list entries by name, not slug. See useEntryLabels.
   const labels = useEntryLabels(props.collection);
@@ -54,11 +57,13 @@ export function MultiRelationshipInput(
     return options.filter(option => !elementSet.has(option.slug));
   }, [props.value, options]);
 
+  // FORK (devinchaloux): description inline or as an ⓘ tooltip.
+  const help = useFieldHelp(props.description);
   return (
     <VStack gap="medium" minWidth={0}>
       <Combobox
         label={props.label}
-        description={props.description}
+        {...help}
         value={null}
         placeholder={items.length === 0 ? 'All selected' : undefined}
         onChange={key => {
@@ -95,7 +100,25 @@ export function MultiRelationshipInput(
           </Item>
         )}
       </Combobox>
-      {true ? (
+      {compact ? (
+        // FORK (devinchaloux): picks as removable chips. Shorter than the
+        // list, and order rarely matters for tags; the full list (with
+        // drag to reorder) is still what a non-compact form shows.
+        props.value.length > 0 && (
+          <TagGroup
+            aria-label={props.label}
+            items={valAsObjects}
+            onRemove={keys => {
+              const removed = new Set([...keys].map(String));
+              props.onChange(props.value.filter(key => !removed.has(key)));
+            }}
+          >
+            {item => (
+              <Item key={item.key}>{labels.get(item.key) ?? item.key}</Item>
+            )}
+          </TagGroup>
+        )
+      ) : (
         <MultiRelationshipListView
           autoFocus={props.autoFocus}
           forceValidation={props.forceValidation}
@@ -106,7 +129,7 @@ export function MultiRelationshipInput(
           labels={labels}
           aria-label={props.label}
         />
-      ) : null}
+      )}
     </VStack>
   );
 }

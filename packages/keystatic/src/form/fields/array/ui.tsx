@@ -32,12 +32,14 @@ import { getInitialPropsValue } from '../../initial-values';
 import { createGetPreviewProps } from '../../preview-props';
 
 import { useEventCallback } from '../document/DocumentEditor/ui-utils';
+import { LabelRow, useCompactForms, useHelpAsTooltip } from '../field-help';
 
 export function ArrayFieldInput<Element extends ComponentSchema>(
   props: GenericPreviewProps<ArrayField<Element>, unknown> &
     ExtraFieldInputProps
 ) {
   const minLength = props.schema.validation?.length?.min ?? 0;
+  const asTooltip = useHelpAsTooltip();
   const formId = useId();
   const stringFormatter = useLocalizedStringFormatter(l10nMessages);
   const errorMessage = useArrayFieldValidationMessage(props);
@@ -47,7 +49,8 @@ export function ArrayFieldInput<Element extends ComponentSchema>(
     fieldProps: groupProps,
     labelProps,
   } = useField({
-    description: props.schema.description,
+    // FORK (devinchaloux): no inline description when it's a tooltip.
+    description: asTooltip ? undefined : props.schema.description,
     errorMessage: errorMessage,
     isInvalid: !!errorMessage,
     label: props.schema.label,
@@ -60,15 +63,17 @@ export function ArrayFieldInput<Element extends ComponentSchema>(
 
   return (
     <VStack gap="medium" role="group" minWidth={0} {...groupProps}>
-      <FieldLabel
-        elementType="span"
-        isRequired={minLength > 0}
-        supplementRequiredState
-        {...labelProps}
-      >
-        {props.schema.label}
-      </FieldLabel>
-      {props.schema.description && (
+      <LabelRow description={props.schema.description}>
+        <FieldLabel
+          elementType="span"
+          isRequired={minLength > 0}
+          supplementRequiredState
+          {...labelProps}
+        >
+          {props.schema.label}
+        </FieldLabel>
+      </LabelRow>
+      {props.schema.description && !asTooltip && (
         <FieldDescription {...descriptionProps}>
           {props.schema.description}
         </FieldDescription>
@@ -375,10 +380,13 @@ export function ArrayFieldListView<Element extends ComponentSchema>(
   });
 
   const stringFormatter = useLocalizedStringFormatter(l10nMessages);
+  // FORK (devinchaloux): short rows when the form is compact.
+  const compact = useCompactForms();
 
   return (
     <ListView
       aria-label={props['aria-label']}
+      density={compact ? 'compact' : undefined}
       items={props.elements}
       dragAndDropHooks={dragAndDropHooks}
       height={props.elements.length ? undefined : 'scale.2000'}

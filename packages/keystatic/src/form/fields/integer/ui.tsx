@@ -2,6 +2,7 @@ import { NumberField } from '@keystar/ui/number-field';
 import { useReducer } from 'react';
 import { validateInteger } from './validateInteger';
 import { FormFieldInputProps } from '../../api';
+import { useFieldHelp } from '../field-help';
 
 export function IntegerFieldInput(
   props: FormFieldInputProps<number | null> & {
@@ -14,10 +15,12 @@ export function IntegerFieldInput(
 ) {
   const [blurred, onBlur] = useReducer(() => true, false);
 
+  // FORK (devinchaloux): description inline or as an ⓘ tooltip.
+  const help = useFieldHelp(props.description);
   return (
     <NumberField
       label={props.label}
-      description={props.description}
+      {...help}
       isRequired={props.validation?.isRequired}
       errorMessage={
         props.forceValidation || blurred

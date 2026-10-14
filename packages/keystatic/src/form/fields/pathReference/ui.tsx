@@ -3,6 +3,7 @@ import { filter } from 'minimatch';
 import { useReducer, useMemo, useState, useEffect } from 'react';
 import { useTree } from '../../../app/shell/data';
 import { FormFieldInputProps } from '../../api';
+import { useFieldHelp } from '../field-help';
 
 export function PathReferenceInput(
   props: FormFieldInputProps<string | null> & {
@@ -40,10 +41,12 @@ export function PathReferenceInput(
     setErrorMessage(_errorMessage);
   }, [_errorMessage]);
 
+  // FORK (devinchaloux): description inline or as an ⓘ tooltip.
+  const help = useFieldHelp(props.description);
   return (
     <Combobox
       label={props.label}
-      description={props.description}
+      {...help}
       value={props.value}
       onChange={key => {
         if (typeof key === 'string' || key === null) {

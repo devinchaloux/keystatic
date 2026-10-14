@@ -43,7 +43,15 @@ import { sortBy } from './collection-sort';
 import {
   cellDisplay,
   defaultSort,
+  eligibleColumns,
+  Filter,
+  filterGroups,
   findDateColumn,
+  loadColumns,
+  passesFilters,
+  saveColumns,
+  toggleFilter,
+  visibleColumns,
   SLUG_COLUMN,
   loadSort,
   matchesSearch,
@@ -51,6 +59,7 @@ import {
   showSlugColumn,
   Sort,
 } from './collection-table';
+import { CollectionToolbar } from './collection-toolbar';
 import l10nMessages from './l10n';
 import { useRouter } from './router';
 import { EmptyState } from './shell/empty-state';
@@ -318,6 +327,17 @@ function CollectionTable(
 
   const collection = props.config.collections![props.collection]!;
 
+  // FORK: the person's choice of columns (remembered), and the filters in
+  // force (not remembered: a list shouldn't open already narrowed).
+  const eligible = useMemo(
+    () => eligibleColumns(collection.schema as any),
+    [collection.schema]
+  );
+  const [chosenColumns, setChosenColumns] = useState<string[] | null>(() =>
+    loadColumns(props.collection)
+  );
+  const [filters, setFilters] = useState<Filter[]>([]);
+
   const entriesWithStatus = useMemo(() => {
     const defaultEntries = new Map(
       getEntriesInCollectionWithTreeKey(
@@ -345,7 +365,9 @@ function CollectionTable(
 
   const mainFiles = useData(
     useCallback(async () => {
-      if (!collection.columns?.length) return undefined;
+      // FORK: load whenever any field could be a column or a filter, not only
+      // when the config names columns.
+      if (!eligible.length) return undefined;
       const formatInfo = getCollectionFormat(props.config, props.collection);
       const entries = await Promise.all(
         entriesWithStatus.map(async entry => {
@@ -417,6 +439,7 @@ function CollectionTable(
       entriesWithStatus,
       baseCommit,
       repoInfo,
+      eligible,
     ])
   );
 
@@ -439,8 +462,25 @@ function CollectionTable(
   }, [entriesWithStatus, mainFiles]);
 
   const shownColumns = useMemo(
-    () => collection.columns ?? [],
-    [collection.columns]
+    () => visibleColumns(chosenColumns, collection.columns ?? [], eligible),
+    [chosenColumns, collection.columns, eligible]
+  );
+  const labelOf = useCallback(
+    (field: string) => {
+      const schema = collection.schema[field];
+      return (schema && 'label' in schema && schema.label) || field;
+    },
+    [collection.schema]
+  );
+  const groups = useMemo(
+    () =>
+      filterGroups(
+        eligible,
+        labelOf,
+        entriesWithData.map(entry => entry.data),
+        collection.slugField
+      ),
+    [eligible, labelOf, entriesWithData, collection.slugField]
   );
   const slugColumnShown = showSlugColumn(shownColumns, collection.slugField);
   const dateColumn = useMemo(
@@ -454,12 +494,15 @@ function CollectionTable(
   const sortDescriptor: SortDescriptor =
     chosenSort ?? defaultSort(shownColumns, collection.slugField, dateColumn);
 
-  // FORK: search every shown column, so "Darude" finds Sandstorm.
+  // FORK: search every shown column, so "Darude" finds Sandstorm; then the
+  // filters, all of which must hold.
   const filteredItems = useMemo(() => {
-    return entriesWithData.filter(item =>
-      matchesSearch(item.name, item.data, shownColumns, searchTerm)
+    return entriesWithData.filter(
+      item =>
+        matchesSearch(item.name, item.data, shownColumns, searchTerm) &&
+        passesFilters(item.data, filters)
     );
-  }, [entriesWithData, searchTerm, shownColumns]);
+  }, [entriesWithData, searchTerm, shownColumns, filters]);
   const sortedItems = useMemo(() => {
     return [...filteredItems].sort((a, b) => {
       const readCol = (
@@ -490,20 +533,14 @@ function CollectionTable(
   ]);
 
   const columns = useMemo(() => {
-    if (collection.columns?.length) {
+    if (shownColumns.length) {
       return [
         ...(hideStatusColumn
           ? []
           : [{ name: 'Status', key: STATUS, minWidth: 32, width: 32 }]),
         // FORK: no Slug column when the slug's own field is already shown.
         ...(slugColumnShown ? [{ name: 'Slug', key: SLUG_COLUMN }] : []),
-        ...collection.columns.map(column => {
-          const schema = collection.schema[column];
-          return {
-            name: ('label' in schema && schema.label) || column,
-            key: column,
-          };
-        }),
+        ...shownColumns.map(column => ({ name: labelOf(column), key: column })),
       ];
     }
     return hideStatusColumn
@@ -512,144 +549,176 @@ function CollectionTable(
           { name: 'Status', key: STATUS, minWidth: 32, width: 32 },
           { name: 'Name', key: SLUG_COLUMN },
         ];
-  }, [collection, hideStatusColumn, slugColumnShown]);
+  }, [hideStatusColumn, slugColumnShown, shownColumns, labelOf]);
 
   return (
-    <TableView
-      aria-labelledby="page-title"
-      selectionMode="none"
-      onSortChange={descriptor => {
-        const sort = descriptor as Sort;
-        setChosenSort(sort);
-        saveSort(props.collection, sort);
-      }}
-      sortDescriptor={sortDescriptor}
-      // FORK: regular, not spacious, so a screen holds a third more rows.
-      density="regular"
-      overflowMode="truncate"
-      prominence="low"
-      onAction={key => {
-        router.push(
-          getItemPath(
-            props.basePath,
-            props.collection,
-            key.toString().slice('key:'.length)
-          )
-        );
-      }}
-      renderEmptyState={() => (
-        <EmptyState
-          icon={searchXIcon}
-          title="No results"
-          message={`No items matching "${searchTerm}" were found.`}
-        />
-      )}
-      flex
-      marginTop={{ tablet: 'large' }}
-      marginBottom={{ mobile: 'regular', tablet: 'xlarge' }}
-      UNSAFE_className={css({
-        marginInline: tokenSchema.size.space.regular,
-        [breakpointQueries.above.mobile]: {
-          marginInline: `calc(${tokenSchema.size.space.xlarge} - ${tokenSchema.size.space.medium})`,
-        },
-        [breakpointQueries.above.tablet]: {
-          marginInline: `calc(${tokenSchema.size.space.xxlarge} - ${tokenSchema.size.space.medium})`,
-        },
-
-        '[role=rowheader]': {
-          cursor: 'pointer',
-        },
-      })}
-    >
-      <TableHeader columns={columns}>
-        {({ name, key, ...options }) =>
-          key === STATUS ? (
-            <Column key={key} isRowHeader allowsSorting {...options}>
-              <Icon aria-label="Status" src={diffIcon} />
-            </Column>
-          ) : (
-            <Column key={key} isRowHeader allowsSorting {...options}>
-              {name}
-            </Column>
+    <>
+      <CollectionToolbar
+        columns={eligible.map(key => ({ key, label: labelOf(key) }))}
+        visible={shownColumns}
+        onVisibleChange={keys => {
+          setChosenColumns(keys);
+          saveColumns(props.collection, keys);
+        }}
+        groups={groups}
+        filters={filters}
+        onToggle={filter =>
+          setFilters(current =>
+            toggleFilter(
+              current,
+              filter,
+              entriesWithData.some(e => Array.isArray(e.data?.[filter.field]))
+            )
           )
         }
-      </TableHeader>
-      <TableBody items={sortedItems}>
-        {item => {
-          const statusCell = (
-            <Cell key={STATUS + item.name} textValue={item.status}>
-              {item.status === 'Added' ? (
-                <Icon color="positive" src={plusSquareIcon} />
-              ) : item.status === 'Changed' ? (
-                <Icon color="accent" src={dotSquareIcon} />
-              ) : null}
-            </Cell>
-          );
-          const nameCell = (
-            <Cell key={SLUG_COLUMN + item.name} textValue={item.name as string}>
-              <Text weight="medium">{item.name as string}</Text>
-            </Cell>
-          );
-          if (collection.columns?.length) {
-            return (
-              <Row key={'key:' + item.name}>
-                {[
-                  ...(hideStatusColumn ? [] : [statusCell]),
-                  ...(slugColumnShown ? [nameCell] : []),
-                  ...collection.columns.map((column, index) => {
-                    const schema = collection.schema[column];
-                    const label = ('label' in schema && schema.label) || column;
-                    // FORK: badges for on-checkboxes, readable dates. The
-                    // slug field's column stands in for the hidden Slug
-                    // column, so it shows the slug until the data loads (or
-                    // when an entry's file can't be read) rather than nothing.
-                    const value = item.data?.[column];
-                    const display = cellDisplay(
-                      column === collection.slugField && value == null
-                        ? item.name
-                        : value,
-                      label,
-                      props.config.locale || 'en-US'
-                    );
-                    const text = display.kind === 'empty' ? '' : display.text;
-                    return (
-                      <Cell key={column + item.name} textValue={text}>
-                        {display.kind === 'badge' ? (
-                          <Badge tone="caution">{display.text}</Badge>
-                        ) : (
-                          <Text
-                            weight={
-                              index === 0 && !slugColumnShown
-                                ? 'medium'
-                                : 'regular'
-                            }
-                            color={
-                              index === 0 && !slugColumnShown
-                                ? 'neutralEmphasis'
-                                : 'neutral'
-                            }
-                          >
-                            {text}
-                          </Text>
-                        )}
-                      </Cell>
-                    );
-                  }),
-                ]}
-              </Row>
-            );
-          }
-          return hideStatusColumn ? (
-            <Row key={'key:' + item.name}>{nameCell}</Row>
-          ) : (
-            <Row key={'key:' + item.name}>
-              {statusCell}
-              {nameCell}
-            </Row>
+        onRemove={filter =>
+          setFilters(current => toggleFilter(current, filter, true))
+        }
+        shown={filteredItems.length}
+        total={entriesWithData.length}
+      />
+      <TableView
+        aria-labelledby="page-title"
+        selectionMode="none"
+        onSortChange={descriptor => {
+          const sort = descriptor as Sort;
+          setChosenSort(sort);
+          saveSort(props.collection, sort);
+        }}
+        sortDescriptor={sortDescriptor}
+        // FORK: regular, not spacious, so a screen holds a third more rows.
+        density="regular"
+        overflowMode="truncate"
+        prominence="low"
+        onAction={key => {
+          router.push(
+            getItemPath(
+              props.basePath,
+              props.collection,
+              key.toString().slice('key:'.length)
+            )
           );
         }}
-      </TableBody>
-    </TableView>
+        renderEmptyState={() => (
+          <EmptyState
+            icon={searchXIcon}
+            title="No results"
+            message={
+              filters.length
+                ? 'No entries match these filters.'
+                : `No items matching "${searchTerm}" were found.`
+            }
+          />
+        )}
+        flex
+        marginTop="regular"
+        marginBottom={{ mobile: 'regular', tablet: 'xlarge' }}
+        UNSAFE_className={css({
+          marginInline: tokenSchema.size.space.regular,
+          [breakpointQueries.above.mobile]: {
+            marginInline: `calc(${tokenSchema.size.space.xlarge} - ${tokenSchema.size.space.medium})`,
+          },
+          [breakpointQueries.above.tablet]: {
+            marginInline: `calc(${tokenSchema.size.space.xxlarge} - ${tokenSchema.size.space.medium})`,
+          },
+
+          '[role=rowheader]': {
+            cursor: 'pointer',
+          },
+        })}
+      >
+        <TableHeader columns={columns}>
+          {({ name, key, ...options }) =>
+            key === STATUS ? (
+              <Column key={key} isRowHeader allowsSorting {...options}>
+                <Icon aria-label="Status" src={diffIcon} />
+              </Column>
+            ) : (
+              <Column key={key} isRowHeader allowsSorting {...options}>
+                {name}
+              </Column>
+            )
+          }
+        </TableHeader>
+        <TableBody items={sortedItems}>
+          {item => {
+            const statusCell = (
+              <Cell key={STATUS + item.name} textValue={item.status}>
+                {item.status === 'Added' ? (
+                  <Icon color="positive" src={plusSquareIcon} />
+                ) : item.status === 'Changed' ? (
+                  <Icon color="accent" src={dotSquareIcon} />
+                ) : null}
+              </Cell>
+            );
+            const nameCell = (
+              <Cell
+                key={SLUG_COLUMN + item.name}
+                textValue={item.name as string}
+              >
+                <Text weight="medium">{item.name as string}</Text>
+              </Cell>
+            );
+            if (shownColumns.length) {
+              return (
+                <Row key={'key:' + item.name}>
+                  {[
+                    ...(hideStatusColumn ? [] : [statusCell]),
+                    ...(slugColumnShown ? [nameCell] : []),
+                    ...shownColumns.map((column, index) => {
+                      const label = labelOf(column);
+                      // FORK: badges for on-checkboxes, readable dates. The
+                      // slug field's column stands in for the hidden Slug
+                      // column, so it shows the slug until the data loads (or
+                      // when an entry's file can't be read) rather than nothing.
+                      const value = item.data?.[column];
+                      const display = cellDisplay(
+                        column === collection.slugField && value == null
+                          ? item.name
+                          : value,
+                        label,
+                        props.config.locale || 'en-US'
+                      );
+                      const text = display.kind === 'empty' ? '' : display.text;
+                      return (
+                        <Cell key={column + item.name} textValue={text}>
+                          {display.kind === 'badge' ? (
+                            <Badge tone="caution">{display.text}</Badge>
+                          ) : (
+                            <Text
+                              weight={
+                                index === 0 && !slugColumnShown
+                                  ? 'medium'
+                                  : 'regular'
+                              }
+                              color={
+                                index === 0 && !slugColumnShown
+                                  ? 'neutralEmphasis'
+                                  : 'neutral'
+                              }
+                            >
+                              {text}
+                            </Text>
+                          )}
+                        </Cell>
+                      );
+                    }),
+                  ]}
+                </Row>
+              );
+            }
+            return hideStatusColumn ? (
+              <Row key={'key:' + item.name}>{nameCell}</Row>
+            ) : (
+              <Row key={'key:' + item.name}>
+                {statusCell}
+                {nameCell}
+              </Row>
+            );
+          }}
+        </TableBody>
+      </TableView>
+    </>
   );
 }
 

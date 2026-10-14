@@ -4,6 +4,7 @@ import { Flex } from '@keystar/ui/layout';
 import { useId } from 'react';
 import { FormFieldInputProps } from '../../api';
 import { Text } from '@keystar/ui/typography';
+import { LabelRow, useHelpAsTooltip } from '../field-help';
 
 export function MultiselectFieldInput<Value extends string>(
   props: FormFieldInputProps<readonly Value[]> & {
@@ -14,18 +15,23 @@ export function MultiselectFieldInput<Value extends string>(
 ) {
   const labelId = useId();
   const descriptionId = useId();
+  const asTooltip = useHelpAsTooltip();
   return (
     <Flex
       role="group"
       aria-labelledby={labelId}
-      aria-describedby={props.description ? descriptionId : undefined}
+      aria-describedby={
+        props.description && !asTooltip ? descriptionId : undefined
+      }
       direction="column"
       gap="medium"
     >
-      <FieldLabel elementType="span" id={labelId}>
-        {props.label}
-      </FieldLabel>
-      {props.description && (
+      <LabelRow description={props.description}>
+        <FieldLabel elementType="span" id={labelId}>
+          {props.label}
+        </FieldLabel>
+      </LabelRow>
+      {props.description && !asTooltip && (
         <Text id={descriptionId} size="small" color="neutralSecondary">
           {props.description}
         </Text>

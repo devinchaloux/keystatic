@@ -95,6 +95,13 @@ export function cellDisplay(
     return { kind: 'empty' };
   }
   if (value === true) return { kind: 'badge', text: columnLabel };
+  // A list (tags, a multi-select): its items, comma-separated.
+  if (Array.isArray(value)) {
+    const items = value.filter(item => item != null && item !== '');
+    return items.length
+      ? { kind: 'text', text: items.join(', ') }
+      : { kind: 'empty' };
+  }
   if (typeof value === 'string' && DATE.test(value)) {
     // UTC on both sides, so the day never shifts with the reader's timezone.
     const date = new Date(`${value}T00:00:00Z`);
@@ -137,5 +144,180 @@ export function saveSort(collection: string, sort: Sort) {
     localStorage.setItem(storageKey(collection), JSON.stringify(sort));
   } catch {
     // Storage blocked: the sort still applies, it just isn't remembered.
+  }
+}
+
+// ── Choosing columns ─────────────────────────────────────────────────────────
+
+type FieldLike = { kind: string; formKind?: string; label?: string };
+
+/**
+ * The fields a table can show: single-valued form fields (text, dates,
+ * checkboxes, selects, numbers, pickers, the slug field). Content, images
+ * and nested lists or objects don't fit in a cell.
+ */
+export function eligibleColumns(schema: Record<string, FieldLike>): string[] {
+  return Object.keys(schema).filter(key => {
+    const field = schema[key];
+    return (
+      field.kind === 'form' &&
+      (field.formKind === undefined || field.formKind === 'slug')
+    );
+  });
+}
+
+/**
+ * The columns to show: the person's choice, kept to fields that still exist
+ * and in the schema's order; else the config's `columns`. Never empty.
+ */
+export function visibleColumns(
+  chosen: readonly string[] | null,
+  configured: readonly string[],
+  eligible: readonly string[]
+): string[] {
+  if (chosen) {
+    const kept = eligible.filter(key => chosen.includes(key));
+    if (kept.length) return kept;
+  }
+  return [...configured];
+}
+
+// ── Filters ──────────────────────────────────────────────────────────────────
+
+/** One active filter: the field, and the value a row must have (or contain). */
+export type Filter = { field: string; value: string | boolean };
+
+export type FilterGroup = {
+  field: string;
+  label: string;
+  options: { key: string; label: string; filter: Filter }[];
+};
+
+/** A stable key for a filter, for menus and chips. */
+export function filterKey(filter: Filter) {
+  return JSON.stringify([filter.field, filter.value]);
+}
+
+/** A pick-list has few distinct values; past this it's free text, not a category. */
+const MAX_CATEGORIES = 24;
+
+/**
+ * Filters the data can support, built from the values actually present:
+ * a checkbox gives "Draft" / "Not draft"; a list (tags) gives each item; a
+ * short text field with few distinct values (a status) gives each value.
+ * Dates, numbers, the slug field and free text give none.
+ */
+export function filterGroups(
+  columns: readonly string[],
+  labelOf: (field: string) => string,
+  rows: readonly (Record<string, unknown> | undefined)[],
+  slugField: string
+): FilterGroup[] {
+  const groups: FilterGroup[] = [];
+  for (const field of columns) {
+    if (field === slugField) continue;
+    const label = labelOf(field);
+    const values = rows
+      .map(row => row?.[field])
+      .filter(value => value != null && value !== '');
+    if (!values.length) continue;
+
+    if (values.every(value => typeof value === 'boolean')) {
+      const options = [true, false].map(value => {
+        const filter = { field, value };
+        return {
+          key: filterKey(filter),
+          label: value ? label : `Not ${label.toLowerCase()}`,
+          filter,
+        };
+      });
+      groups.push({ field, label, options });
+      continue;
+    }
+
+    let distinct: string[] = [];
+    if (values.every(value => Array.isArray(value))) {
+      distinct = [...new Set((values as unknown[][]).flat().map(String))];
+    } else if (
+      values.every(value => typeof value === 'string' && !DATE.test(value))
+    ) {
+      distinct = [...new Set(values as string[])];
+      // Every row different (titles, notes) means free text, not a category.
+      if (distinct.length === values.length && values.length > 3) continue;
+    } else {
+      continue;
+    }
+    if (!distinct.length || distinct.length > MAX_CATEGORIES) continue;
+    distinct.sort((a, b) => a.localeCompare(b));
+    groups.push({
+      field,
+      label,
+      options: distinct.map(value => {
+        const filter = { field, value };
+        return { key: filterKey(filter), label: value, filter };
+      }),
+    });
+  }
+  return groups;
+}
+
+/** Whether a row passes every filter: all must hold (AND). */
+export function passesFilters(
+  data: Record<string, unknown> | undefined,
+  filters: readonly Filter[]
+) {
+  return filters.every(({ field, value }) => {
+    const actual = data?.[field];
+    if (Array.isArray(actual)) {
+      return actual.map(String).includes(String(value));
+    }
+    if (typeof value === 'boolean') return (actual ?? false) === value;
+    return actual === value;
+  });
+}
+
+/**
+ * Choosing a filter: the same one again turns it off; another value for a
+ * field already filtered replaces it, since a row has one value per field.
+ * A list field (tags) can hold several, so its filters add up instead.
+ */
+export function toggleFilter(
+  filters: readonly Filter[],
+  next: Filter,
+  isListField: boolean
+): Filter[] {
+  const key = filterKey(next);
+  if (filters.some(filter => filterKey(filter) === key)) {
+    return filters.filter(filter => filterKey(filter) !== key);
+  }
+  return [
+    ...filters.filter(filter => isListField || filter.field !== next.field),
+    next,
+  ];
+}
+
+// ── Remembering the person's columns ─────────────────────────────────────────
+
+const columnsKey = (collection: string) =>
+  `keystatic-fork:columns:${collection}`;
+
+export function loadColumns(collection: string): string[] | null {
+  try {
+    const parsed = JSON.parse(
+      localStorage.getItem(columnsKey(collection)) ?? 'null'
+    );
+    return Array.isArray(parsed) && parsed.every(x => typeof x === 'string')
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveColumns(collection: string, columns: readonly string[]) {
+  try {
+    localStorage.setItem(columnsKey(collection), JSON.stringify(columns));
+  } catch {
+    // Storage blocked: the choice applies, it just isn't remembered.
   }
 }

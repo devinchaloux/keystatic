@@ -3,6 +3,7 @@ import { FormFieldInputProps } from '../../api';
 import { TextArea, TextField } from '@keystar/ui/text-field';
 import { validateText } from './validateText';
 import { PathContext, SlugFieldContext } from './path-slug-context';
+import { useFieldHelp } from '../field-help';
 
 export function TextFieldInput(
   props: FormFieldInputProps<string> & {
@@ -18,10 +19,12 @@ export function TextFieldInput(
   const [blurred, setBlurred] = useState(false);
   const slugContext = useContext(SlugFieldContext);
   const path = useContext(PathContext);
+  // FORK (devinchaloux): description inline or as an ⓘ tooltip.
+  const help = useFieldHelp(props.description);
   return (
     <TextFieldComponent
       label={props.label}
-      description={props.description}
+      {...help}
       autoFocus={props.autoFocus}
       value={props.value}
       onChange={props.onChange}

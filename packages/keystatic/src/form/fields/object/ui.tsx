@@ -12,6 +12,7 @@ import {
 } from '../../form-from-preview';
 import { AddToPathProvider } from '../text/path-slug-context';
 import { FIELD_GRID_COLUMNS, FieldContextProvider } from '../context';
+import { LabelRow, useHelpAsTooltip } from '../field-help';
 
 // this is just to get the react compiler to run on this, because of a todo
 const belowTablet = containerQueries.below.tablet;
@@ -100,6 +101,8 @@ export function ObjectFieldInput<
     </Grid>
   );
   const id = useId();
+  // FORK (devinchaloux): before the early return, per the rules of hooks.
+  const asTooltip = useHelpAsTooltip();
 
   if (!schema.label) {
     return inner;
@@ -113,17 +116,21 @@ export function ObjectFieldInput<
       gap="medium"
       marginY="xlarge"
       aria-labelledby={labelId}
-      aria-describedby={schema.description ? descriptionId : undefined}
+      aria-describedby={
+        schema.description && !asTooltip ? descriptionId : undefined
+      }
     >
-      <Text
-        color="neutralEmphasis"
-        size="medium"
-        weight="semibold"
-        id={labelId}
-      >
-        {schema.label}
-      </Text>
-      {!!schema.description && (
+      <LabelRow description={schema.description}>
+        <Text
+          color="neutralEmphasis"
+          size="medium"
+          weight="semibold"
+          id={labelId}
+        >
+          {schema.label}
+        </Text>
+      </LabelRow>
+      {!!schema.description && !asTooltip && (
         <Text id={descriptionId} size="regular" color="neutralSecondary">
           {schema.description}
         </Text>

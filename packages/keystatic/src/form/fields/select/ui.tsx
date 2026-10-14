@@ -1,5 +1,6 @@
 import { Picker, Item } from '@keystar/ui/picker';
 import { useFieldSpan } from '../context';
+import { useFieldHelp } from '../field-help';
 
 export function SelectFieldInput<Value extends string>(props: {
   value: Value;
@@ -11,10 +12,12 @@ export function SelectFieldInput<Value extends string>(props: {
 }) {
   let fieldSpan = useFieldSpan();
 
+  // FORK (devinchaloux): description inline or as an ⓘ tooltip.
+  const help = useFieldHelp(props.description);
   return (
     <Picker
       label={props.label}
-      description={props.description}
+      {...help}
       items={props.options}
       value={props.value}
       onChange={key => {

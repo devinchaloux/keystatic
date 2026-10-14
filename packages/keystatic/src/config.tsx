@@ -84,6 +84,17 @@ type UserInterface<Collections, Singletons> = {
     /** Stylesheet URL for the fonts `css` names. Replaces the default Inter. */
     fonts?: string;
   };
+  /**
+   * FORK (devinchaloux): where field descriptions go. `'tooltip'` puts each
+   * behind an ⓘ button beside its label; the default prints it inline.
+   */
+  fieldHelp?: 'inline' | 'tooltip';
+  /**
+   * FORK (devinchaloux): `'compact'` tightens long forms: list fields use
+   * short rows, and a multi-relationship (tags) shows its picks as
+   * removable chips rather than a tall reorderable list.
+   */
+  density?: 'regular' | 'compact';
 };
 
 type Navigation<K> = K[] | { [section: string]: K[] };

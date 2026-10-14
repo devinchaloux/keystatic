@@ -10,6 +10,7 @@ import { useContext, useState } from 'react';
 import { FormFieldInputProps } from '../../api';
 import { SlugFieldContext, PathContext } from '../text/path-slug-context';
 import { validateText } from '../text/validateText';
+import { useFieldHelp } from '../field-help';
 
 const emptySet = new Set<string>();
 
@@ -48,6 +49,9 @@ export function SlugFieldInput(
   };
 
   const slugFieldLabel = props.args.slug?.label ?? 'Slug';
+  // FORK (devinchaloux): descriptions inline or as ⓘ tooltips.
+  const nameHelp = useFieldHelp(props.args.name.description);
+  const slugHelp = useFieldHelp(props.args.slug?.description);
   const slugErrorMessage =
     props.forceValidation || blurredSlug
       ? validateText(
@@ -64,7 +68,7 @@ export function SlugFieldInput(
     <Flex gap="xlarge" direction="column">
       <TextField
         label={props.args.name.label}
-        description={props.args.name.description}
+        {...nameHelp}
         autoFocus={props.autoFocus}
         value={props.value.name}
         isRequired={!!props.args.name.validation?.length?.min}
@@ -92,7 +96,7 @@ export function SlugFieldInput(
         <TextField
           flex={1}
           label={slugFieldLabel}
-          description={props.args.slug?.description}
+          {...slugHelp}
           value={props.value.slug}
           onChange={slug => {
             setShouldGenerateSlug(false);

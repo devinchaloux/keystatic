@@ -7,6 +7,7 @@ import { useIsInDocumentEditor } from '../document/DocumentEditor';
 import { useId, useReducer } from 'react';
 import { FormFieldInputProps } from '../../api';
 import { getUploadedFile, useObjectURL } from '../image/ui';
+import { LabelRow, useHelpAsTooltip } from '../field-help';
 
 // TODO: button labels ("Choose file", "Remove", "Download") need i18n support
 export function FileFieldInput(
@@ -27,22 +28,27 @@ export function FileFieldInput(
   const objectUrl = useObjectURL(value === null ? null : value.data, undefined);
   const labelId = useId();
   const descriptionId = useId();
+  const asTooltip = useHelpAsTooltip();
   return (
     <Flex
-      aria-describedby={props.description ? descriptionId : undefined}
+      aria-describedby={
+        props.description && !asTooltip ? descriptionId : undefined
+      }
       aria-labelledby={labelId}
       direction="column"
       gap="medium"
       role="group"
     >
-      <FieldLabel
-        id={labelId}
-        elementType="span"
-        isRequired={props.validation?.isRequired}
-      >
-        {props.label}
-      </FieldLabel>
-      {props.description && (
+      <LabelRow description={props.description}>
+        <FieldLabel
+          id={labelId}
+          elementType="span"
+          isRequired={props.validation?.isRequired}
+        >
+          {props.label}
+        </FieldLabel>
+      </LabelRow>
+      {props.description && !asTooltip && (
         <FieldDescription id={descriptionId}>
           {props.description}
         </FieldDescription>

@@ -3,6 +3,11 @@ import { expect, test } from 'vitest';
 import {
   SLUG_COLUMN,
   cellDisplay,
+  eligibleColumns,
+  filterGroups,
+  passesFilters,
+  toggleFilter,
+  visibleColumns,
   defaultSort,
   findDateColumn,
   matchesSearch,
@@ -65,4 +70,105 @@ test('cells: on-checkboxes become badges, off ones vanish, dates read as dates',
     text: '16',
   });
   expect(cellDisplay(null, 'Date', 'en-US')).toEqual({ kind: 'empty' });
+});
+
+test('cells: a list shows its items; an empty list shows nothing', () => {
+  expect(cellDisplay(['edm', 'methodology'], 'Tags', 'en-US')).toEqual({
+    kind: 'text',
+    text: 'edm, methodology',
+  });
+  expect(cellDisplay([], 'Tags', 'en-US')).toEqual({ kind: 'empty' });
+});
+
+test('columns: only single-valued form fields can be shown', () => {
+  const schema = {
+    title: { kind: 'form', formKind: 'slug' },
+    date: { kind: 'form' },
+    content: { kind: 'form', formKind: 'content' },
+    image: { kind: 'form', formKind: 'asset' },
+    sections: { kind: 'array' },
+  };
+  expect(eligibleColumns(schema)).toEqual(['title', 'date']);
+});
+
+test("columns: the person's choice, in schema order, else the config's", () => {
+  const eligible = ['title', 'date', 'updatedDate', 'draft', 'tags'];
+  expect(
+    visibleColumns(['tags', 'title'], ['title', 'date'], eligible)
+  ).toEqual(['title', 'tags']);
+  expect(visibleColumns(null, ['title', 'date'], eligible)).toEqual([
+    'title',
+    'date',
+  ]);
+  // A remembered column that no longer exists can't empty the table.
+  expect(visibleColumns(['gone'], ['title'], eligible)).toEqual(['title']);
+});
+
+const rows = [
+  {
+    title: 'Drop',
+    date: '2026-09-06',
+    draft: true,
+    tags: ['edm'],
+    status: 'open',
+  },
+  {
+    title: 'Groove',
+    date: '2026-10-01',
+    draft: false,
+    tags: ['edm', 'methodology'],
+    status: 'open',
+  },
+  {
+    title: 'Hook',
+    date: '2026-10-02',
+    draft: true,
+    tags: [],
+    status: 'parked',
+  },
+  {
+    title: 'Riser',
+    date: '2026-10-03',
+    draft: false,
+    tags: ['methodology'],
+    status: 'open',
+  },
+];
+const labelOf = (field: string) =>
+  ({ draft: 'Draft', tags: 'Tags', status: 'Status' })[field] ?? field;
+
+test('filters come from the data: checkboxes, list items, short pick-lists', () => {
+  const groups = filterGroups(
+    ['title', 'date', 'draft', 'tags', 'status'],
+    labelOf,
+    rows,
+    'title'
+  );
+  expect(groups.map(g => g.field)).toEqual(['draft', 'tags', 'status']);
+  expect(groups[0].options.map(o => o.label)).toEqual(['Draft', 'Not draft']);
+  expect(groups[1].options.map(o => o.label)).toEqual(['edm', 'methodology']);
+  expect(groups[2].options.map(o => o.label)).toEqual(['open', 'parked']);
+});
+
+test('filters: all must hold; a list matches if it contains the value', () => {
+  const draft = { field: 'draft', value: true };
+  const edm = { field: 'tags', value: 'edm' };
+  expect(rows.filter(r => passesFilters(r, [draft])).map(r => r.title)).toEqual(
+    ['Drop', 'Hook']
+  );
+  expect(
+    rows.filter(r => passesFilters(r, [draft, edm])).map(r => r.title)
+  ).toEqual(['Drop']);
+  // A checkbox never set counts as off.
+  expect(passesFilters({}, [{ field: 'draft', value: false }])).toBe(true);
+});
+
+test('toggling: again turns off; a new value replaces; list filters add up', () => {
+  const draft = { field: 'draft', value: true };
+  const notDraft = { field: 'draft', value: false };
+  expect(toggleFilter([draft], draft, false)).toEqual([]);
+  expect(toggleFilter([draft], notDraft, false)).toEqual([notDraft]);
+  const edm = { field: 'tags', value: 'edm' };
+  const method = { field: 'tags', value: 'methodology' };
+  expect(toggleFilter([edm], method, true)).toEqual([edm, method]);
 });

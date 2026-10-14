@@ -2,6 +2,7 @@ import { TextField } from '@keystar/ui/text-field';
 import { useReducer } from 'react';
 import { validateDate } from './validateDate';
 import { FormFieldInputProps } from '../../api';
+import { useFieldHelp } from '../field-help';
 
 export function DateFieldInput(
   props: FormFieldInputProps<string | null> & {
@@ -12,10 +13,12 @@ export function DateFieldInput(
 ) {
   const [blurred, onBlur] = useReducer(() => true, false);
 
+  // FORK (devinchaloux): description inline or as an ⓘ tooltip.
+  const help = useFieldHelp(props.description);
   return (
     <TextField
       label={props.label}
-      description={props.description}
+      {...help}
       type="date"
       onChange={val => {
         props.onChange(val === '' ? null : val);

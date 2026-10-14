@@ -6,7 +6,7 @@ shaped around one person's writing: dense cross-references, music examples,
 citations, records from a research corpus. Upstream Keystatic is built for
 general use and changes slowly, so the site now owns its copy.
 
-**Current release:** `devinchaloux.2`, based on `@keystatic/core@0.6.9`.
+**Current release:** `devinchaloux.3`, based on `@keystatic/core@0.6.9`.
 
 The site that uses it is private (`devinchaloux/devinchaloux-site`). This repo
 holds only editor code, never site content.
@@ -37,6 +37,9 @@ change, so `git grep "FORK (devinchaloux)"` lists them all. Each has a test.
 | devinchaloux.2 | **`ui.theme` config option.** The site passes CSS (overrides of the UI kit's `--kui-*` variables) and a font stylesheet, so the admin wears the site's palette and type. The values live in the site repo.                                                                                                                             | `packages/keystatic/src/config.tsx`, `src/app/provider.tsx`                                                       |
 | devinchaloux.2 | **Collection tables read like a list of writing.** No Slug column when the slug's own field is shown; on-checkboxes as badges ("Draft"), off ones blank; dates as "Sep 6, 2026"; newest first when there's a date, else by the leading column; the chosen sort remembered per collection; search across every column; regular density. | `src/app/collection-table.ts` (+ `.test.ts`), `src/app/CollectionPage.tsx`                                        |
 | devinchaloux.2 | **Pickers list entries by name.** Relationship and multi-relationship pickers show each entry's slug-field text ("Sandstorm — Darude (1999)") with the slug beneath, and search by name.                                                                                                                                               | `src/app/useEntryLabels.ts`, `src/form/fields/relationship/ui.tsx`, `src/form/fields/multiRelationship/ui.tsx`    |
+| devinchaloux.3 | **`ui.fieldHelp: 'tooltip'`.** Field descriptions become an ⓘ button beside the label, opening a popover, instead of paragraphs under every field; in entry forms and component dialogs alike.                                                                                                                                         | `src/form/fields/field-help.tsx`, every field `ui.tsx` that renders a description                                 |
+| devinchaloux.3 | **Columns and filters on collection tables.** A Columns menu (any single-valued field, remembered per collection) and a Filter menu built from the data (checkboxes, tags, short pick-lists), active filters as removable chips, and an entry count.                                                                                   | `src/app/collection-toolbar.tsx`, `src/app/collection-table.ts` (+ tests), `src/app/CollectionPage.tsx`           |
+| devinchaloux.3 | **`ui.density: 'compact'`.** List fields use short rows, and a multi-relationship (tags) shows its picks as removable chips.                                                                                                                                                                                                           | `src/form/fields/array/ui.tsx`, `src/form/fields/multiRelationship/ui.tsx`                                        |
 
 Only `@keystatic/core` is forked so far. The site still installs
 `@keystatic/astro` from npm, because nothing in it has needed to change.

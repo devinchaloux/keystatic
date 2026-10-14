@@ -33,6 +33,7 @@ import {
 import l10nMessages from '../../../app/l10n';
 import { createGetPreviewProps } from '../../preview-props';
 import { getInitialPropsValue } from '../../initial-values';
+import { LabelRow, useHelpAsTooltip } from '../field-help';
 
 type BlocksPreviewProps = GenericPreviewProps<
   ArrayField<
@@ -61,6 +62,7 @@ export function BlocksFieldInput(
   };
 
   const minLength = props.schema.validation?.length?.min ?? 0;
+  const asTooltip = useHelpAsTooltip();
   const formId = useId();
   const stringFormatter = useLocalizedStringFormatter(l10nMessages);
   const errorMessage = useArrayFieldValidationMessage(props);
@@ -70,7 +72,8 @@ export function BlocksFieldInput(
     fieldProps: groupProps,
     labelProps,
   } = useField({
-    description: props.schema.description,
+    // FORK (devinchaloux): no inline description when it's a tooltip.
+    description: asTooltip ? undefined : props.schema.description,
     errorMessage: errorMessage,
     isInvalid: !!errorMessage,
     label: props.schema.label,
@@ -79,15 +82,17 @@ export function BlocksFieldInput(
 
   return (
     <VStack gap="medium" role="group" minWidth={0} {...groupProps}>
-      <FieldLabel
-        elementType="span"
-        isRequired={minLength > 0}
-        supplementRequiredState
-        {...labelProps}
-      >
-        {props.schema.label}
-      </FieldLabel>
-      {props.schema.description && (
+      <LabelRow description={props.schema.description}>
+        <FieldLabel
+          elementType="span"
+          isRequired={minLength > 0}
+          supplementRequiredState
+          {...labelProps}
+        >
+          {props.schema.label}
+        </FieldLabel>
+      </LabelRow>
+      {props.schema.description && !asTooltip && (
         <FieldDescription {...descriptionProps}>
           {props.schema.description}
         </FieldDescription>

@@ -5,6 +5,7 @@ import { useSlugsInCollection } from '../../../app/useSlugsInCollection';
 import { useEntryLabels } from '../../../app/useEntryLabels';
 import { Text } from '@keystar/ui/typography';
 import { FormFieldInputProps } from '../../api';
+import { useFieldHelp } from '../field-help';
 
 export function RelationshipInput(
   props: FormFieldInputProps<string | null> & {
@@ -37,10 +38,12 @@ export function RelationshipInput(
     setErrorMessage(_errorMessage);
   }, [_errorMessage]);
 
+  // FORK (devinchaloux): description inline or as an ⓘ tooltip.
+  const help = useFieldHelp(props.description);
   return (
     <Combobox
       label={props.label}
-      description={props.description}
+      {...help}
       value={props.value}
       onChange={key => {
         if (typeof key === 'string' || key === null) {
