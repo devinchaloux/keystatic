@@ -666,6 +666,8 @@ function PopoverInner(props: {
         placement="bottom"
         portal={false}
         reference={reference}
+        // FORK (devinchaloux): above the sticky toolbar, as the "/" menu.
+        UNSAFE_style={{ zIndex: 3 }}
       >
         {props.decoration.kind === 'node' ? (
           <props.decoration.component

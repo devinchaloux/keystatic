@@ -32,7 +32,12 @@ import { getInitialPropsValue } from '../../initial-values';
 import { createGetPreviewProps } from '../../preview-props';
 
 import { useEventCallback } from '../document/DocumentEditor/ui-utils';
-import { LabelRow, useCompactForms, useHelpAsTooltip } from '../field-help';
+import {
+  LabelRow,
+  ListFieldHeader,
+  useCompactForms,
+  useHelpAsTooltip,
+} from '../field-help';
 
 export function ArrayFieldInput<Element extends ComponentSchema>(
   props: GenericPreviewProps<ArrayField<Element>, unknown> &
@@ -40,6 +45,7 @@ export function ArrayFieldInput<Element extends ComponentSchema>(
 ) {
   const minLength = props.schema.validation?.length?.min ?? 0;
   const asTooltip = useHelpAsTooltip();
+  const compact = useCompactForms();
   const formId = useId();
   const stringFormatter = useLocalizedStringFormatter(l10nMessages);
   const errorMessage = useArrayFieldValidationMessage(props);
@@ -62,31 +68,45 @@ export function ArrayFieldInput<Element extends ComponentSchema>(
   >({ state: 'closed' });
 
   return (
-    <VStack gap="medium" role="group" minWidth={0} {...groupProps}>
-      <LabelRow description={props.schema.description}>
-        <FieldLabel
-          elementType="span"
-          isRequired={minLength > 0}
-          supplementRequiredState
-          {...labelProps}
-        >
-          {props.schema.label}
-        </FieldLabel>
-      </LabelRow>
-      {props.schema.description && !asTooltip && (
-        <FieldDescription {...descriptionProps}>
-          {props.schema.description}
-        </FieldDescription>
-      )}
-      <ActionButton
-        autoFocus={props.autoFocus}
-        onPress={() => {
-          setModalState({ state: 'new' });
-        }}
-        alignSelf="start"
-      >
-        {stringFormatter.format('add')}
-      </ActionButton>
+    <VStack
+      gap={compact ? 'regular' : 'medium'}
+      role="group"
+      minWidth={0}
+      {...groupProps}
+    >
+      <ListFieldHeader
+        label={
+          <LabelRow description={props.schema.description}>
+            <FieldLabel
+              elementType="span"
+              isRequired={minLength > 0}
+              supplementRequiredState
+              {...labelProps}
+            >
+              {props.schema.label}
+            </FieldLabel>
+          </LabelRow>
+        }
+        description={
+          props.schema.description &&
+          !asTooltip && (
+            <FieldDescription {...descriptionProps}>
+              {props.schema.description}
+            </FieldDescription>
+          )
+        }
+        add={
+          <ActionButton
+            autoFocus={props.autoFocus}
+            onPress={() => {
+              setModalState({ state: 'new' });
+            }}
+            alignSelf={compact ? undefined : 'start'}
+          >
+            {stringFormatter.format('add')}
+          </ActionButton>
+        }
+      />
       <ArrayFieldListView
         {...props}
         aria-label={props.schema.label}
@@ -380,8 +400,11 @@ export function ArrayFieldListView<Element extends ComponentSchema>(
   });
 
   const stringFormatter = useLocalizedStringFormatter(l10nMessages);
-  // FORK (devinchaloux): short rows when the form is compact.
+  // FORK (devinchaloux): short rows when the form is compact, and an empty
+  // list draws nothing at all: its Add button, beside the label, says enough.
+  // Upstream reserves a 160px "Empty list" box per empty field.
   const compact = useCompactForms();
+  if (compact && props.elements.length === 0) return null;
 
   return (
     <ListView

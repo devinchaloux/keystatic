@@ -6,7 +6,7 @@ shaped around one person's writing: dense cross-references, music examples,
 citations, records from a research corpus. Upstream Keystatic is built for
 general use and changes slowly, so the site now owns its copy.
 
-**Current release:** `devinchaloux.5`, based on `@keystatic/core@0.6.9`.
+**Current release:** `devinchaloux.6`, based on `@keystatic/core@0.6.9`.
 
 The site that uses it is private (`devinchaloux/devinchaloux-site`). This repo
 holds only editor code, never site content.
@@ -49,6 +49,8 @@ change, so `git grep "FORK (devinchaloux)"` lists them all. Each has a test.
 | devinchaloux.5 | **Focus mode.** A header button and ⌘⇧F collapse both side panels; remembered across reloads.                                                                                                                                                                                                                                          | `src/app/focus-mode.ts`, `src/app/shell/panels.tsx`, `src/app/entry-form.tsx`, `src/app/ItemPage.tsx`             |
 | devinchaloux.5 | **`ui.onPasteUrl`.** A URL pasted alone into prose may become a component (the site's rule decides), inserted with its form open.                                                                                                                                                                                                      | `src/form/fields/markdoc/editor/paste-url.ts`, `.../editor-state.tsx`                                             |
 | devinchaloux.5 | **Create with a title.** `…/create?<slug field>=Title` starts the entry with that title and its slug.                                                                                                                                                                                                                                  | `src/app/create-item.tsx`                                                                                         |
+| devinchaloux.6 | **Insert menus fit.** The `/` and `[[` menus cap at 320px tall instead of filling the screen, and they and the component forms stack above the editor's sticky toolbar rather than sliding under it.                                                                                                                                   | `src/form/fields/markdoc/editor/autocomplete/autocomplete.tsx`, `.../popovers/index.tsx`                          |
+| devinchaloux.6 | **Empty lists are one row** (compact): a list or blocks field puts Add beside its label and draws no list until it has an item, where upstream reserves a 160px "Empty list" box.                                                                                                                                                      | `src/form/fields/field-help.tsx`, `src/form/fields/array/ui.tsx`, `src/form/fields/blocks/ui.tsx`                 |
 
 Only `@keystatic/core` is forked so far. The site still installs
 `@keystatic/astro` from npm, because nothing in it has needed to change.

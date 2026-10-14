@@ -33,7 +33,12 @@ import {
 import l10nMessages from '../../../app/l10n';
 import { createGetPreviewProps } from '../../preview-props';
 import { getInitialPropsValue } from '../../initial-values';
-import { LabelRow, useHelpAsTooltip } from '../field-help';
+import {
+  LabelRow,
+  ListFieldHeader,
+  useCompactForms,
+  useHelpAsTooltip,
+} from '../field-help';
 
 type BlocksPreviewProps = GenericPreviewProps<
   ArrayField<
@@ -63,6 +68,7 @@ export function BlocksFieldInput(
 
   const minLength = props.schema.validation?.length?.min ?? 0;
   const asTooltip = useHelpAsTooltip();
+  const compact = useCompactForms();
   const formId = useId();
   const stringFormatter = useLocalizedStringFormatter(l10nMessages);
   const errorMessage = useArrayFieldValidationMessage(props);
@@ -81,40 +87,56 @@ export function BlocksFieldInput(
   });
 
   return (
-    <VStack gap="medium" role="group" minWidth={0} {...groupProps}>
-      <LabelRow description={props.schema.description}>
-        <FieldLabel
-          elementType="span"
-          isRequired={minLength > 0}
-          supplementRequiredState
-          {...labelProps}
-        >
-          {props.schema.label}
-        </FieldLabel>
-      </LabelRow>
-      {props.schema.description && !asTooltip && (
-        <FieldDescription {...descriptionProps}>
-          {props.schema.description}
-        </FieldDescription>
-      )}
-      <MenuTrigger>
-        <ActionButton alignSelf="start">Add</ActionButton>
-        <Menu
-          items={props.schema.element.discriminant.options}
-          onAction={discriminant => {
-            const val = props.schema.element.discriminant.options.find(
-              x => x.value.toString() === discriminant.toString()
-            )?.value;
-            if (val === undefined) return;
-            setModalState({
-              kind: 'new',
-              discriminant: val,
-            });
-          }}
-        >
-          {item => <Item key={item.value.toString()}>{item.label}</Item>}
-        </Menu>
-      </MenuTrigger>
+    <VStack
+      gap={compact ? 'regular' : 'medium'}
+      role="group"
+      minWidth={0}
+      {...groupProps}
+    >
+      <ListFieldHeader
+        label={
+          <LabelRow description={props.schema.description}>
+            <FieldLabel
+              elementType="span"
+              isRequired={minLength > 0}
+              supplementRequiredState
+              {...labelProps}
+            >
+              {props.schema.label}
+            </FieldLabel>
+          </LabelRow>
+        }
+        description={
+          props.schema.description &&
+          !asTooltip && (
+            <FieldDescription {...descriptionProps}>
+              {props.schema.description}
+            </FieldDescription>
+          )
+        }
+        add={
+          <MenuTrigger>
+            <ActionButton alignSelf={compact ? undefined : 'start'}>
+              Add
+            </ActionButton>
+            <Menu
+              items={props.schema.element.discriminant.options}
+              onAction={discriminant => {
+                const val = props.schema.element.discriminant.options.find(
+                  x => x.value.toString() === discriminant.toString()
+                )?.value;
+                if (val === undefined) return;
+                setModalState({
+                  kind: 'new',
+                  discriminant: val,
+                });
+              }}
+            >
+              {item => <Item key={item.value.toString()}>{item.label}</Item>}
+            </Menu>
+          </MenuTrigger>
+        }
+      />
       <ArrayFieldListView
         {...props}
         aria-label={props.schema.label}

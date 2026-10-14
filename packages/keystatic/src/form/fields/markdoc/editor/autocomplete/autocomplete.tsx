@@ -25,7 +25,10 @@ export function EditorAutocomplete<Item extends object>(
   const { keydownListener, listbox } = useEditorListbox({
     listenerRef,
     ...props,
-    UNSAFE_style: { width: 320, ...props.UNSAFE_style },
+    // FORK (devinchaloux): a capped height. Upstream stretches the menu to
+    // fill all the room above or below the cursor, so a "/" near the bottom
+    // of a long piece opened a list taller than the screen.
+    UNSAFE_style: { width: 320, maxHeight: 320, ...props.UNSAFE_style },
   });
   useEditorKeydownListener(event => {
     keydownListener(event);
@@ -40,6 +43,9 @@ export function EditorAutocomplete<Item extends object>(
         minWidth="element.medium"
         placement="bottom-start"
         reference={referenceElement}
+        // FORK (devinchaloux): above the editor's sticky toolbar (z-index
+        // 2). When the menu opens upward it otherwise slides underneath it.
+        UNSAFE_style={{ zIndex: 3 }}
       >
         {listbox}
       </EditorPopover>

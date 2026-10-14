@@ -8,7 +8,7 @@
 // away, out of the way otherwise, and reachable by keyboard and on a phone,
 // which a hover-only tooltip would not be.
 
-import { ReactElement, useContext } from 'react';
+import { ReactElement, ReactNode, useContext } from 'react';
 import { ContextualHelp } from '@keystar/ui/contextual-help';
 import { HStack } from '@keystar/ui/layout';
 import { Content } from '@keystar/ui/slots';
@@ -66,5 +66,36 @@ export function LabelRow(props: {
       {props.children}
       <FieldHelp>{props.description}</FieldHelp>
     </HStack>
+  );
+}
+
+/**
+ * A list field's top: its label, inline help if any, and its Add button.
+ * Upstream stacks the three; compact puts Add on the label's line, so an
+ * empty list (which then draws no list at all) is one row of the form.
+ */
+export function ListFieldHeader(props: {
+  label: ReactElement;
+  description: ReactNode;
+  add: ReactElement;
+}) {
+  const compact = useCompactForms();
+  if (!compact) {
+    return (
+      <>
+        {props.label}
+        {props.description}
+        {props.add}
+      </>
+    );
+  }
+  return (
+    <>
+      <HStack gap="regular" alignItems="center" justifyContent="space-between">
+        {props.label}
+        {props.add}
+      </HStack>
+      {props.description}
+    </>
   );
 }
