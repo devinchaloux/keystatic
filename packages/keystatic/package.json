@@ -1,6 +1,7 @@
 {
   "name": "@keystatic/core",
   "version": "0.6.9",
+  "forkRelease": "devinchaloux.1",
   "license": "MIT",
   "repository": {
     "type": "git",

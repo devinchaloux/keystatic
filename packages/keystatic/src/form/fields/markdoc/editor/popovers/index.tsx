@@ -27,6 +27,7 @@ import { pencilIcon } from '@keystar/ui/icon/icons/pencilIcon';
 import { ComponentSchema } from '../../../../api';
 import { toSerialized, useDeserializedValue } from '../props-serialization';
 import { TextField } from '@keystar/ui/text-field';
+import { consumeAutoOpen } from '../commands/misc';
 
 type NodePopoverRenderer = (props: {
   node: Node;
@@ -337,7 +338,11 @@ function InlineComponentPopover(props: {
   const schema = getEditorSchema(props.state.schema);
   const componentConfig = schema.components[props.node.type.name];
   const runCommand = useEditorDispatchCommand();
-  const [isOpen, setIsOpen] = useState(false);
+  // FORK (devinchaloux): open straight away when this node was just inserted.
+  // See consumeAutoOpen in ../commands/misc.ts.
+  const [isOpen, setIsOpen] = useState(() =>
+    consumeAutoOpen(componentConfig.schema)
+  );
   const componentSchema = useMemo(
     () => ({ kind: 'object' as const, fields: componentConfig.schema }),
     [componentConfig.schema]
