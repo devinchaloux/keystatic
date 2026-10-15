@@ -312,6 +312,7 @@ function SingletonPageInner(
                 props.onUpdate({ branch: newBranch, sha: baseCommit });
               }}
               reason={props.updateResult.reason}
+              suggestedName={props.updateResult.suggestedName}
               onDismiss={props.onResetUpdateItem}
             />
           )}

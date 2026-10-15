@@ -73,6 +73,7 @@ export function FormForEntry({
   entryLayout,
   previewProps: props,
   livePreview,
+  aside,
 }: {
   previewProps: GenericPreviewProps<
     ObjectField<Record<string, ComponentSchema>>,
@@ -84,6 +85,8 @@ export function FormForEntry({
   slugField: SlugFieldInfo | undefined;
   /** FORK (devinchaloux): the live preview pane, shown in place of the fields. */
   livePreview?: ReactElement;
+  /** FORK (devinchaloux): the site's own panel, under the fields. */
+  aside?: ReactElement | null;
 }) {
   const isAboveMobile = useContentPanelQuery({ above: 'mobile' });
   const focused = useFocusMode();
@@ -151,6 +154,7 @@ export function FormForEntry({
                         omitFieldAtPath={contentField.path}
                         {...props}
                       />
+                      {aside}
                     </Box>
                   </ScrollView>
                 </EntryLayoutSplitPaneContext.Provider>
@@ -171,6 +175,7 @@ export function FormForEntry({
           slugField={slugField}
           {...props}
         />
+        {aside}
       </PageContainer>
     </ScrollView>
   );

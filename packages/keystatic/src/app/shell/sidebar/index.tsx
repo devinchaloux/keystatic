@@ -40,6 +40,7 @@ import { useBrand } from '../common';
 import { SIDE_PANEL_ID } from '../constants';
 import { GitMenu, ThemeMenu, UserActions } from './components';
 import { BranchPicker } from '../../branch-selection';
+import { PublishButton } from '../../publish';
 import { useAppState, useConfig } from '../context';
 import { useCompactForms } from '../../../form/fields/field-help';
 
@@ -153,10 +154,14 @@ function SidebarGitActions() {
     return null;
   }
   return (
-    <HStack gap="regular" paddingY="regular" paddingX="medium">
-      <BranchPicker />
-      <GitMenu />
-    </HStack>
+    <VStack gap="regular" paddingY="regular" paddingX="medium">
+      <HStack gap="regular">
+        <BranchPicker />
+        <GitMenu />
+      </HStack>
+      {/* FORK (devinchaloux): on a writing branch, the way to go live. */}
+      <PublishButton />
+    </VStack>
   );
 }
 

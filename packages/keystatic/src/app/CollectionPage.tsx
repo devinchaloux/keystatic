@@ -123,9 +123,14 @@ export function CollectionPage(props: CollectionPageProps) {
     <PageRoot containerWidth={containerWidth}>
       <CollectionPageHeader
         collectionLabel={collectionConfig.label}
-        createHref={`${props.basePath}/collection/${encodeURIComponent(
-          props.collection
-        )}/create`}
+        // FORK (devinchaloux): no Add for a collection something else writes.
+        createHref={
+          props.config.ui?.readOnly?.[props.collection]
+            ? undefined
+            : `${props.basePath}/collection/${encodeURIComponent(
+                props.collection
+              )}/create`
+        }
         searchTerm={searchTerm}
         onSearchTermChange={setSearchTermFromForm}
       />
@@ -135,7 +140,7 @@ export function CollectionPage(props: CollectionPageProps) {
 }
 
 function CollectionPageHeader(props: {
-  createHref: string;
+  createHref: string | undefined;
   collectionLabel: string;
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
@@ -224,14 +229,16 @@ function CollectionPageHeader(props: {
       >
         <Icon src={searchIcon} />
       </ActionButton>
-      <Button
-        marginStart="auto"
-        prominence="high"
-        href={createHref}
-        isHidden={searchVisible ? { below: 'tablet' } : undefined}
-      >
-        {stringFormatter.format('add')}
-      </Button>
+      {createHref && (
+        <Button
+          marginStart="auto"
+          prominence="high"
+          href={createHref}
+          isHidden={searchVisible ? { below: 'tablet' } : undefined}
+        >
+          {stringFormatter.format('add')}
+        </Button>
+      )}
     </PageHeader>
   );
 }
