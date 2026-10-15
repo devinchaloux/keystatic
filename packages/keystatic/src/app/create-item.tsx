@@ -52,6 +52,11 @@ import {
 } from './preview-props';
 import { useDuplicateSlug } from './duplicate-slug';
 import { LivePreviewButton, useLivePreview } from './live-preview';
+import {
+  EntryChecksBadge,
+  useCheckedSave,
+  useEntryChecks,
+} from './entry-checks';
 import { getYjsValFromParsedValue } from '../form/yjs-props-value';
 import { setValueToPreviewProps } from '../form/get-value';
 import { copyEntryToClipboard, getPastedEntry } from './entry-clipboard';
@@ -533,6 +538,13 @@ function CreateItemInner(props: {
     collection: props.collection,
     state: props.state,
   });
+  // FORK (devinchaloux): the site's checks, before the first save too.
+  const problems = useEntryChecks({
+    config,
+    collection: props.collection,
+    state: props.state,
+  });
+  const checkedCreate = useCheckedSave(problems, onCreate);
 
   return (
     <>
@@ -579,6 +591,7 @@ function CreateItemInner(props: {
               </Item>
             )}
           </ActionGroup>
+          <EntryChecksBadge problems={problems} />
           <Button
             isDisabled={isLoading}
             prominence="high"
@@ -595,7 +608,7 @@ function CreateItemInner(props: {
           onSubmit={event => {
             if (event.target !== event.currentTarget) return;
             event.preventDefault();
-            onCreate();
+            checkedCreate.onSave();
           }}
           direction="column"
           gap="xxlarge"
@@ -616,6 +629,7 @@ function CreateItemInner(props: {
           />
         </Flex>
       </PageRoot>
+      {checkedCreate.dialog}
 
       <DialogContainer
         // ideally this would be a popover on desktop but using a DialogTrigger
@@ -648,6 +662,7 @@ function CreateItemInner(props: {
               }
             }}
             reason={createResult.reason}
+            suggestedName={createResult.suggestedName}
             onDismiss={props.resetCreateItemState}
           />
         )}

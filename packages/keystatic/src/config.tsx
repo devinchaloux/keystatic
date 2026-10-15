@@ -108,12 +108,6 @@ type UserInterface<Collections, Singletons> = {
     textField: string;
   };
   /**
-   * FORK (devinchaloux): a site's own panel at the top of the dashboard (the
-   * collection cards stay below it). `navigate` moves within the admin
-   * without a page load; `basePath` is where the admin lives, e.g.
-   * "/keystatic".
-   */
-  /**
    * FORK (devinchaloux): a URL pasted on its own into prose may become a
    * component: return its name and the values the URL gives, or nothing to
    * paste it as usual. Its form opens for the rest.
@@ -130,10 +124,61 @@ type UserInterface<Collections, Singletons> = {
    * strings) is shown above the page.
    */
   livePreview?: { url: string };
+  /**
+   * FORK (devinchaloux): a site's own panel at the top of the dashboard (the
+   * collection cards stay below it). `navigate` moves within the admin
+   * without a page load; `basePath` is where the admin lives, e.g.
+   * "/keystatic".
+   */
   desk?: (props: {
     basePath: string;
     navigate: (href: string) => void;
   }) => ReactElement | null;
+  /**
+   * FORK (devinchaloux): write on branches, publish with a button. GitHub
+   * storage only. Saving on the default branch (which the live site is built
+   * from) asks for a writing branch instead, named under
+   * `storage.branchPrefix`. On any other branch the sidebar has a Publish
+   * button, which merges the branch into the default branch and deletes it.
+   * `site` names the live site in the messages ("devinchaloux.com").
+   */
+  publishing?: { site?: string };
+  /**
+   * FORK (devinchaloux): the site's own checks, run on an entry as it's
+   * edited. The entry, unsaved, is POSTed to `url` as JSON
+   * `{ collection, slug, text, slugs }`, where `slugs` maps each collection
+   * in `slugsOf` to its entries' slugs on the current branch. The response is
+   * JSON `{ problems: string[] }`. Problems show beside Save, and saving with
+   * any asks first.
+   */
+  entryChecks?: { url: string; slugsOf?: string[] };
+  /**
+   * FORK (devinchaloux): a site's own panel under an entry's fields (or
+   * under the form, for an entry without a content field).
+   */
+  entryAside?: (props: {
+    collection: string;
+    slug: string;
+    basePath: string;
+    navigate: (href: string) => void;
+  }) => ReactElement | null;
+  /**
+   * FORK (devinchaloux): adjust an existing entry just before it's saved,
+   * for a value that should follow from the edit (a "last updated" date).
+   * Given the entry as opened and as it stands; returns what to save. The
+   * form shows the saved values once the save lands.
+   */
+  beforeSave?: (args: {
+    collection: string;
+    initialState: Record<string, unknown>;
+    state: Record<string, unknown>;
+  }) => Record<string, unknown>;
+  /**
+   * FORK (devinchaloux): collections written by something else (a sync),
+   * shown but never saved from the admin. Maps each collection to the
+   * sentence shown on its entries, e.g. "Sylloge writes these."
+   */
+  readOnly?: Partial<Record<keyof Collections & string, string>>;
 };
 
 type Navigation<K> = K[] | { [section: string]: K[] };

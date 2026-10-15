@@ -115,6 +115,8 @@ export function useUpsertItem(args: {
   currentLocalTreeKey: string | undefined;
   basePath: string;
   slug: { value: string; field: string } | undefined;
+  /** FORK (devinchaloux): `ui.beforeSave`, bound to the entry by its page. */
+  beforeSave?: (state: Record<string, unknown>) => Record<string, unknown>;
 }) {
   const [state, setState] = useState<
     | { kind: 'idle' }
@@ -122,7 +124,7 @@ export function useUpsertItem(args: {
     | { kind: 'loading' }
     | { kind: 'needs-fork' }
     | { kind: 'error'; error: Error }
-    | { kind: 'needs-new-branch'; reason: string }
+    | { kind: 'needs-new-branch'; reason: string; suggestedName?: string }
   >({
     kind: 'idle',
   });
@@ -152,6 +154,24 @@ export function useUpsertItem(args: {
           setState({ kind: 'needs-fork' });
           return false;
         }
+        // FORK (devinchaloux): with `ui.publishing`, the default branch is
+        // the live site, so a save there goes to a new writing branch
+        // instead. The pages already offer that dialog for a protected
+        // branch; this asks for it before trying.
+        if (
+          args.config.storage.kind === 'github' &&
+          args.config.ui?.publishing &&
+          repoInfo &&
+          (override?.branch ?? currentBranch) === repoInfo.defaultBranch
+        ) {
+          const site = args.config.ui.publishing.site ?? 'the live site';
+          setState({
+            kind: 'needs-new-branch',
+            reason: `Saving here would publish straight to ${site}. Save to a writing branch instead, then press Publish when it's ready.`,
+            suggestedName: args.basePath.split('/').pop(),
+          });
+          return false;
+        }
         setState({ kind: 'loading' });
 
         const pathPrefix = getPathPrefix(args.config.storage) ?? '';
@@ -159,7 +179,11 @@ export function useUpsertItem(args: {
           basePath: args.basePath,
           schema: args.schema,
           format: args.format,
-          state: args.state,
+          // FORK (devinchaloux): the site's last word on what's saved.
+          state:
+            args.beforeSave && args.state && typeof args.state === 'object'
+              ? args.beforeSave(args.state as Record<string, unknown>)
+              : args.state,
           slug: args.slug,
         }).map(addition => ({
           ...addition,

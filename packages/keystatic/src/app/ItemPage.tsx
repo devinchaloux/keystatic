@@ -59,7 +59,12 @@ import { useRouter } from './router';
 import { HeaderBreadcrumbs } from './shell/HeaderBreadcrumbs';
 import { useYjsIfAvailable } from './shell/collab';
 import { useConfig } from './shell/context';
-import { useBaseCommit, useCurrentBranch, useRepoInfo } from './shell/data';
+import {
+  useBaseCommit,
+  useBranches,
+  useCurrentBranch,
+  useRepoInfo,
+} from './shell/data';
 import { PageBody, PageHeader, PageRoot } from './shell/page';
 import { useSlugFieldInfo } from './slugs';
 import { delDraft, getDraft, setDraft } from './persistence';
@@ -96,6 +101,12 @@ import { maximize2Icon } from '@keystar/ui/icon/icons/maximize2Icon';
 import { minimize2Icon } from '@keystar/ui/icon/icons/minimize2Icon';
 import { toggleFocusMode, useFocusMode } from './focus-mode';
 import { LivePreviewButton, useLivePreview } from './live-preview';
+import { freeBranchName } from './publish';
+import {
+  EntryChecksBadge,
+  useCheckedSave,
+  useEntryChecks,
+} from './entry-checks';
 import { Tooltip, TooltipTrigger } from '@keystar/ui/tooltip';
 
 type ItemPageProps = {
@@ -161,6 +172,11 @@ function ItemPageInner(
     collection,
     state: props.state,
   });
+  // FORK (devinchaloux): the site's checks, the site's panel under the
+  // fields, and collections something else writes.
+  const problems = useEntryChecks({ config, collection, state: props.state });
+  const readOnlyNote = config.ui?.readOnly?.[collection];
+  const EntryAside = config.ui?.entryAside;
 
   const [deleteResult, deleteItem, resetDeleteItem] = useDeleteItem({
     initialFiles: props.initialFiles,
@@ -185,7 +201,7 @@ function ItemPageInner(
   const isSavingDisabled = updateResult.kind === 'loading' || !props.hasChanged;
 
   const onUpdate = useEventCallback(async () => {
-    if (isSavingDisabled) return false;
+    if (isSavingDisabled || readOnlyNote) return false;
     if (!clientSideValidateProp(schema, props.state, slugInfo)) {
       setForceValidation(true);
       return false;
@@ -201,6 +217,10 @@ function ItemPageInner(
     }
     return hasUpdated;
   });
+
+  // FORK (devinchaloux): Save asks first when the site's checks found
+  // something; Ctrl+S and the button both go through it.
+  const checkedSave = useCheckedSave(problems, onUpdate);
 
   const onCopy = useEventCallback(() => {
     copyEntryToClipboard(props.state, formatInfo, collectionConfig.schema, {
@@ -249,12 +269,12 @@ function ItemPageInner(
       }
       if (isHotkey('mod+s', event)) {
         event.preventDefault();
-        onUpdate();
+        if (!isSavingDisabled) checkedSave.onSave();
       }
     };
     document.addEventListener('keydown', listener);
     return () => document.removeEventListener('keydown', listener);
-  }, [updateResult.kind, onUpdate]);
+  }, [updateResult.kind, isSavingDisabled, checkedSave]);
 
   return (
     <>
@@ -274,10 +294,13 @@ function ItemPageInner(
             livePreview={
               livePreview.available ? { open: livePreview.open } : undefined
             }
+            checks={<EntryChecksBadge problems={problems} />}
+            readOnly={!!readOnlyNote}
           />
         }
         {...props}
       >
+        {readOnlyNote && <Notice tone="neutral">{readOnlyNote}</Notice>}
         {updateResult.kind === 'error' && (
           <Notice tone="critical">{updateResult.error.message}</Notice>
         )}
@@ -293,18 +316,36 @@ function ItemPageInner(
           onSubmit={(event: FormEvent) => {
             if (event.target !== event.currentTarget) return;
             event.preventDefault();
-            onUpdate();
+            if (!isSavingDisabled) checkedSave.onSave();
           }}
         >
-          <FormForEntry
-            previewProps={props.previewProps as any}
-            forceValidation={forceValidation}
-            entryLayout={collectionConfig.entryLayout}
-            formatInfo={formatInfo}
-            slugField={slugInfo}
-            livePreview={livePreview.pane}
-          />
+          {/* FORK (devinchaloux): a read-only collection's fields can't be
+              changed: a disabled fieldset disables every control in it. */}
+          <fieldset
+            disabled={!!readOnlyNote}
+            style={{ display: 'contents', border: 0, margin: 0, padding: 0 }}
+          >
+            <FormForEntry
+              previewProps={props.previewProps as any}
+              forceValidation={forceValidation}
+              entryLayout={collectionConfig.entryLayout}
+              formatInfo={formatInfo}
+              slugField={slugInfo}
+              livePreview={livePreview.pane}
+              aside={
+                EntryAside && (
+                  <EntryAside
+                    collection={collection}
+                    slug={itemSlug}
+                    basePath={props.basePath}
+                    navigate={push}
+                  />
+                )
+              }
+            />
+          </fieldset>
         </Box>
+        {checkedSave.dialog}
         <DialogContainer
           // ideally this would be a popover on desktop but using a DialogTrigger wouldn't work since
           // this doesn't open on click but after doing a network request and it failing and manually wiring about a popover and modal would be a pain
@@ -329,6 +370,7 @@ function ItemPageInner(
                 }
               }}
               reason={updateResult.reason}
+              suggestedName={updateResult.suggestedName}
               onDismiss={props.onResetUpdateItem}
             />
           )}
@@ -448,6 +490,7 @@ function LocalItemPage(
     format: formatInfo,
     currentLocalTreeKey: localTreeKey,
     slug: { field: collectionConfig.slugField, value: slug },
+    beforeSave: useBeforeSave(config, collection, initialState),
   });
 
   useEffect(() => {
@@ -531,6 +574,7 @@ function CollabItemPage(props: ItemPageProps & { map: Y.Map<any> }) {
     format: formatInfo,
     currentLocalTreeKey: localTreeKey,
     slug: { field: collectionConfig.slugField, value: slug },
+    beforeSave: useBeforeSave(config, collection, initialState),
   });
 
   const update = useEventCallback(_update);
@@ -557,6 +601,23 @@ function CollabItemPage(props: ItemPageProps & { map: Y.Map<any> }) {
   );
 }
 
+/** FORK (devinchaloux): `ui.beforeSave`, bound to this entry as opened. */
+function useBeforeSave(
+  config: Config,
+  collection: string,
+  initialState: Record<string, unknown>
+) {
+  const hook = config.ui?.beforeSave;
+  return useMemo(
+    () =>
+      hook
+        ? (state: Record<string, unknown>) =>
+            hook({ collection, initialState, state })
+        : undefined,
+    [hook, collection, initialState]
+  );
+}
+
 function HeaderActions(props: {
   formID: string;
   hasChanged: boolean;
@@ -570,6 +631,10 @@ function HeaderActions(props: {
   viewHref?: string;
   /** FORK (devinchaloux): present when the site offers a live preview. */
   livePreview?: { open: boolean };
+  /** FORK (devinchaloux): the site's checks' badge, beside Save. */
+  checks?: ReactNode;
+  /** FORK (devinchaloux): a collection something else writes: no Save. */
+  readOnly?: boolean;
 }) {
   let {
     formID,
@@ -598,33 +663,35 @@ function HeaderActions(props: {
       target?: string;
       rel?: string;
     };
-    let items: ActionType[] = [
-      {
-        key: 'reset',
-        label: 'Reset changes', // TODO: l10n
-        icon: historyIcon,
-      },
-      {
-        key: 'delete',
-        label: 'Delete entry…', // TODO: l10n
-        icon: trash2Icon,
-      },
-      {
-        key: 'copy',
-        label: 'Copy entry', // TODO: l10n
-        icon: clipboardCopyIcon,
-      },
-      {
-        key: 'paste',
-        label: 'Paste entry', // TODO: l10n
-        icon: clipboardPasteIcon,
-      },
-      {
-        key: 'duplicate',
-        label: 'Duplicate entry…', // TODO: l10n
-        icon: copyPlusIcon,
-      },
-    ];
+    let items: ActionType[] = props.readOnly
+      ? []
+      : [
+          {
+            key: 'reset',
+            label: 'Reset changes', // TODO: l10n
+            icon: historyIcon,
+          },
+          {
+            key: 'delete',
+            label: 'Delete entry…', // TODO: l10n
+            icon: trash2Icon,
+          },
+          {
+            key: 'copy',
+            label: 'Copy entry', // TODO: l10n
+            icon: clipboardCopyIcon,
+          },
+          {
+            key: 'paste',
+            label: 'Paste entry', // TODO: l10n
+            icon: clipboardPasteIcon,
+          },
+          {
+            key: 'duplicate',
+            label: 'Duplicate entry…', // TODO: l10n
+            icon: copyPlusIcon,
+          },
+        ];
     if (previewHref) {
       items.push({
         key: 'preview',
@@ -647,7 +714,7 @@ function HeaderActions(props: {
     }
 
     return items;
-  }, [previewHref, viewHref]);
+  }, [previewHref, viewHref, props.readOnly]);
 
   const indicatorElement = (() => {
     if (isLoading) {
@@ -748,14 +815,17 @@ function HeaderActions(props: {
           </Item>
         )}
       </ActionGroup>
-      <Button
-        form={formID}
-        isDisabled={isLoading}
-        prominence="high"
-        type="submit"
-      >
-        {stringFormatter.format('save')}
-      </Button>
+      {props.checks}
+      {!props.readOnly && (
+        <Button
+          form={formID}
+          isDisabled={isLoading}
+          prominence="high"
+          type="submit"
+        >
+          {stringFormatter.format('save')}
+        </Button>
+      )}
       <DialogContainer onDismiss={() => setDeleteAlertOpen(false)}>
         {deleteAlertIsOpen && (
           <AlertDialog
@@ -793,15 +863,24 @@ export function CreateBranchDuringUpdateDialog(props: {
   onCreate: (branchName: string) => void;
   onDismiss: () => void;
   reason: string;
+  /** FORK (devinchaloux): a name to start from (the entry's slug). */
+  suggestedName?: string;
 }) {
   const stringFormatter = useLocalizedStringFormatter(l10nMessages);
   const repoInfo = useRepoInfo();
-  const [branchName, setBranchName] = useState('');
+  const config = useConfig();
+  const branchPrefix = getBranchPrefix(config);
+  const branches = useBranches();
+  // FORK (devinchaloux): start from the entry's name, numbered if a branch
+  // of that name is already open, so Enter is usually all it takes.
+  const [branchName, setBranchName] = useState(() =>
+    props.suggestedName
+      ? freeBranchName(props.suggestedName, branchPrefix ?? '', branches)
+      : ''
+  );
   const [{ error, fetching, data }, createBranch] = useCreateBranchMutation();
   const isLoading = fetching || !!data?.createRef?.__typename;
 
-  const config = useConfig();
-  const branchPrefix = getBranchPrefix(config);
   const propsForBranchPrefix = branchPrefix
     ? {
         UNSAFE_className: css({
