@@ -14,7 +14,8 @@ import { Text } from '@keystar/ui/typography';
 
 import { FormFieldInputProps } from '../../api';
 import { useSlugsInCollection } from '../../../app/useSlugsInCollection';
-import { useEntryLabels } from '../../../app/useEntryLabels';
+import { useEntryLabelsState } from '../../../app/useEntryLabels';
+import { relationshipPicker } from '../relationship/picker';
 import { TagGroup } from '@keystar/ui/tag';
 import { ExtraFieldInputProps } from '../../form-from-preview';
 import { validateMultiRelationshipLength } from './validate';
@@ -34,11 +35,13 @@ export function MultiRelationshipInput(
   const [blurred, onBlur] = useReducer(() => true, false);
   const compact = useCompactForms();
   const slugs = useSlugsInCollection(props.collection);
-  // FORK (devinchaloux): list entries by name, not slug. See useEntryLabels.
-  const labels = useEntryLabels(props.collection);
-  const options = useMemo(() => {
-    return slugs.map(slug => ({ slug, label: labels.get(slug) ?? slug }));
-  }, [slugs, labels]);
+  // FORK (devinchaloux): list entries by name, not slug, and say "Loading…"
+  // until the names are read. See useEntryLabels and relationship/picker.ts.
+  const { labels, loaded } = useEntryLabelsState(props.collection);
+  const { options, loadingState } = useMemo(
+    () => relationshipPicker(slugs, labels, loaded),
+    [slugs, labels, loaded]
+  );
 
   const _errorMessage =
     (props.forceValidation || blurred) &&
@@ -72,6 +75,7 @@ export function MultiRelationshipInput(
           }
         }}
         disabledKeys={['No more items…']}
+        loadingState={loadingState}
         onBlur={onBlur}
         autoFocus={props.autoFocus}
         defaultItems={
