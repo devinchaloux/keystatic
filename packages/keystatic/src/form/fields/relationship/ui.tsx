@@ -2,7 +2,8 @@ import { Item } from 'react-stately/Item';
 import { Combobox } from '@keystar/ui/combobox';
 import { useReducer, useMemo, useState, useEffect } from 'react';
 import { useSlugsInCollection } from '../../../app/useSlugsInCollection';
-import { useEntryLabels } from '../../../app/useEntryLabels';
+import { useEntryLabelsState } from '../../../app/useEntryLabels';
+import { relationshipPicker } from './picker';
 import { Text } from '@keystar/ui/typography';
 import { FormFieldInputProps } from '../../api';
 import { useFieldHelp } from '../field-help';
@@ -17,11 +18,13 @@ export function RelationshipInput(
 ) {
   const [blurred, onBlur] = useReducer(() => true, false);
   const slugs = useSlugsInCollection(props.collection);
-  // FORK (devinchaloux): list entries by name, not slug. See useEntryLabels.
-  const labels = useEntryLabels(props.collection);
-  const options = useMemo(() => {
-    return slugs.map(slug => ({ slug, label: labels.get(slug) ?? slug }));
-  }, [slugs, labels]);
+  // FORK (devinchaloux): list entries by name, not slug, and say "Loading…"
+  // until the names are read. See useEntryLabels and picker.ts.
+  const { labels, loaded } = useEntryLabelsState(props.collection);
+  const { options, loadingState } = useMemo(
+    () => relationshipPicker(slugs, labels, loaded),
+    [slugs, labels, loaded]
+  );
 
   const _errorMessage =
     (props.forceValidation || blurred) &&
@@ -53,6 +56,7 @@ export function RelationshipInput(
       onBlur={onBlur}
       autoFocus={props.autoFocus}
       defaultItems={options}
+      loadingState={loadingState}
       isRequired={props.validation?.isRequired}
       errorMessage={errorMessage}
       width="auto"

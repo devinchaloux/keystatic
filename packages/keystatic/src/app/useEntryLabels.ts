@@ -39,6 +39,18 @@ const decoder = new TextDecoder();
 export function useCollectionEntries(
   collection: string
 ): Map<string, EntryRecord> {
+  return useCollectionEntriesState(collection).entries;
+}
+
+// FORK (devinchaloux): the same, saying whether the files have been read.
+// A picker filters on the names, and until they arrive each option's text is
+// its slug, so a search typed at once matched nothing and the menu closed for
+// good (react-stately reopens it only on the next keystroke). Pickers use
+// `loaded` to show "Loading…" instead (see relationshipPicker).
+export function useCollectionEntriesState(collection: string): {
+  entries: Map<string, EntryRecord>;
+  loaded: boolean;
+} {
   const config = useConfig();
   const tree = useTree().current;
   const baseCommit = useBaseCommit();
@@ -82,15 +94,28 @@ export function useCollectionEntries(
     }, [config, collection, tree, baseCommit, repoInfo])
   );
 
-  return state.kind === 'loaded' ? state.data : EMPTY_ENTRIES;
+  return {
+    entries: state.kind === 'loaded' ? state.data : EMPTY_ENTRIES,
+    // An unreadable collection counts as loaded: its pickers fall back to
+    // slugs rather than spin forever.
+    loaded: tree.kind !== 'loading' && state.kind !== 'loading',
+  };
 }
 
 /** slug → name (the slug field's text), for the entries that have one. */
 export function useEntryLabels(collection: string): Map<string, string> {
+  return useEntryLabelsState(collection).labels;
+}
+
+// FORK (devinchaloux): the names, and whether they have been read yet.
+export function useEntryLabelsState(collection: string): {
+  labels: Map<string, string>;
+  loaded: boolean;
+} {
   const config = useConfig();
-  const entries = useCollectionEntries(collection);
+  const { entries, loaded } = useCollectionEntriesState(collection);
   const slugField = config.collections?.[collection]?.slugField;
-  return useMemo(() => {
+  const labels = useMemo(() => {
     const labels = new Map<string, string>();
     if (!slugField) return labels;
     for (const [slug, entry] of entries) {
@@ -102,4 +127,5 @@ export function useEntryLabels(collection: string): Map<string, string> {
     }
     return labels;
   }, [entries, slugField]);
+  return { labels, loaded };
 }

@@ -1,12 +1,25 @@
 # This fork
 
+**Reviewed:** not yet
+
+## Now
+
+The editor behind `devinchaloux.com/keystatic`, released as
+`devinchaloux.13` on `@keystatic/core@0.6.9`. **What the fork changes** is
+the table under Our changes, one row per change, and that table is the
+fork's rulings: read it, not the code, to know what the editor does
+differently. **How a change ships** is Making a release; **how upstream
+comes in** is Taking an upstream update. Nothing is waiting on a decision.
+
+---
+
 Devin Chaloux's fork of [Keystatic](https://github.com/Thinkmill/keystatic), the
 editor behind `devinchaloux.com/keystatic`. It exists so the editor can be
 shaped around one person's writing: dense cross-references, music examples,
 citations, records from a research corpus. Upstream Keystatic is built for
 general use and changes slowly, so the site now owns its copy.
 
-**Current release:** `devinchaloux.12`, based on `@keystatic/core@0.6.9`.
+**Current release:** `devinchaloux.13`, based on `@keystatic/core@0.6.9`.
 
 The site that uses it is private (`devinchaloux/devinchaloux-site`). This repo
 holds only editor code, never site content.
@@ -62,6 +75,7 @@ change, so `git grep "FORK (devinchaloux)"` lists them all. Each has a test.
 | devinchaloux.12 | **`ui.entryAside`.** A site's own panel under an entry's fields (or under the form), given `collection`, `slug`, `basePath` and `navigate`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `src/app/entry-form.tsx`, `src/app/ItemPage.tsx`                                                                                                 |
 | devinchaloux.12 | **`ui.beforeSave`.** The site adjusts an existing entry just before it's serialized, given the entry as opened and as it stands (a "last updated" date that follows the edit).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `src/app/updating.tsx`, `src/app/ItemPage.tsx`                                                                                                   |
 | devinchaloux.12 | **`ui.readOnly`.** Collections something else writes: no Add, and their entries show the site's sentence, disabled fields, and no Save, Delete or Paste.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `src/app/CollectionPage.tsx`, `src/app/ItemPage.tsx`                                                                                             |
+| devinchaloux.13 | **Pickers wait for the names.** A relationship or multi-relationship picker searches by name, but the names are read from each entry's file after the picker opens; until then an option's text was its slug, so a search typed straight away matched nothing, the menu closed, and it stayed closed when the names arrived. The picker now says "Loading…" until they are read, then lists the matches. | `src/app/useEntryLabels.ts`, `src/form/fields/relationship/picker.ts`, both pickers' `ui.tsx` |
 
 Only `@keystatic/core` is forked so far. The site still installs
 `@keystatic/astro` from npm, because nothing in it has needed to change.
@@ -98,6 +112,7 @@ pnpm, pinned in `package.json`; `npx` fetches the right version.
 
 ```sh
 npx -y pnpm@11.20.0 install --frozen-lockfile --ignore-scripts
+npx -y pnpm@11.20.0 exec preconstruct dev                  # link the packages, or tests can't find @keystar/ui
 node design-system/pkg/build-l10n.mts                      # translations for the UI kit
 (cd packages/keystatic && npx -y pnpm@11.20.0 run setup)   # generated GraphQL types, l10n, syntax colours
 npx -y pnpm@11.20.0 exec tsc --noEmit                      # type check
