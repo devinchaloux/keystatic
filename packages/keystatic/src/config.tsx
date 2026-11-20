@@ -179,6 +179,18 @@ type UserInterface<Collections, Singletons> = {
    * sentence shown on its entries, e.g. "Sylloge writes these."
    */
   readOnly?: Partial<Record<keyof Collections & string, string>>;
+  /**
+   * FORK (devinchaloux): several starting points for a new entry. Each
+   * collection listed gets an Add menu (Blank, then each template), and
+   * `…/create?template=<key>` starts from that template's stored entry. The
+   * key is the label as a slug. See src/app/entry-templates.ts.
+   */
+  templates?: Partial<
+    Record<
+      keyof Collections & string,
+      { label: string; path: string; description?: string }[]
+    >
+  >;
 };
 
 type Navigation<K> = K[] | { [section: string]: K[] };

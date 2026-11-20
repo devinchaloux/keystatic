@@ -60,6 +60,7 @@ import {
 import { getYjsValFromParsedValue } from '../form/yjs-props-value';
 import { setValueToPreviewProps } from '../form/get-value';
 import { copyEntryToClipboard, getPastedEntry } from './entry-clipboard';
+import { chosenTemplate } from './entry-templates';
 import { clipboardCopyIcon } from '@keystar/ui/icon/icons/clipboardCopyIcon';
 import { clipboardPasteIcon } from '@keystar/ui/icon/icons/clipboardPasteIcon';
 import { ActionGroup, Item } from '@keystar/ui/action-group';
@@ -79,6 +80,17 @@ function CreateItemWrapper(props: {
 
   const collectionConfig = props.config.collections?.[props.collection];
   if (!collectionConfig) notFound();
+  // FORK (devinchaloux): `?template=<key>` starts from one of the
+  // collection's `ui.templates` (entry-templates.ts), in place of `template`.
+  const templateParam = useMemo(() => {
+    const url = new URL(router.href, 'http://localhost');
+    return url.searchParams.get('template');
+  }, [router.href]);
+  const picked = chosenTemplate(props.config, props.collection, templateParam);
+  const templatePath = picked?.path ?? collectionConfig.template;
+  // Each template keeps its own unsaved draft, so starting a Talk never
+  // reopens a half-written Project page.
+  const draftKey = duplicateSlug ?? (picked ? `template:${templateParam}` : null);
 
   // FORK (devinchaloux): `?<slug field>=Some title` starts the new entry
   // with that title (and the slug generated from it, as the field would).
@@ -110,7 +122,7 @@ function CreateItemWrapper(props: {
       const raw = await getDraft([
         'collection-create',
         props.collection,
-        ...(duplicateSlug ? ([duplicateSlug] as const) : ([] as const)),
+        ...(draftKey ? ([draftKey] as const) : ([] as const)),
       ]);
       if (!raw) throw new Error('No draft found');
       const stored = storedValSchema.create(raw);
@@ -130,7 +142,7 @@ function CreateItemWrapper(props: {
       return { state: parsed.initialState, savedAt: stored.savedAt };
     }, [
       collectionConfig,
-      duplicateSlug,
+      draftKey,
       format,
       props.collection,
       props.config,
@@ -141,18 +153,18 @@ function CreateItemWrapper(props: {
     if (duplicateSlug) {
       return { field: collectionConfig.slugField, slug: duplicateSlug };
     }
-    if (collectionConfig.template) {
+    if (templatePath) {
       return { field: collectionConfig.slugField, slug: '' };
     }
-  }, [duplicateSlug, collectionConfig]);
+  }, [duplicateSlug, collectionConfig, templatePath]);
 
-  const isFromTemplate = !!duplicateSlug || !!collectionConfig.template;
+  const isFromTemplate = !!duplicateSlug || !!templatePath;
 
   const itemData = useItemData({
     config: props.config,
     dirpath:
-      collectionConfig.template && !duplicateSlug
-        ? collectionConfig.template
+      templatePath && !duplicateSlug
+        ? templatePath
         : getCollectionItemPath(
             props.config,
             props.collection,
@@ -178,7 +190,11 @@ function CreateItemWrapper(props: {
   const currentBranch = useCurrentBranch();
   const yjsInfo = useYjsIfAvailable();
   const key = `${currentBranch}/${props.collection}/create${
-    duplicateSlug?.length ? `?duplicate=${duplicateSlug}` : ''
+    duplicateSlug?.length
+      ? `?duplicate=${duplicateSlug}`
+      : picked
+        ? `?template=${templateParam}`
+        : ''
   }`;
 
   const mapData = useData(
@@ -261,7 +277,8 @@ function CreateItemWrapper(props: {
         config={props.config}
         basePath={props.basePath}
         draft={draftData.kind === 'loaded' ? draftData.data : undefined}
-        duplicateSlug={duplicateSlug}
+        // FORK (devinchaloux): the draft's key, which a template also sets.
+        duplicateSlug={draftKey}
         initialState={duplicateInitalStateWithUpdatedSlug ?? prefillState}
       />
     );
