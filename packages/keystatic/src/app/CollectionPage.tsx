@@ -1,6 +1,7 @@
 import { useLocalizedStringFormatter } from 'react-aria/useLocalizedStringFormatter';
 import { isHotkey } from 'is-hotkey';
 import React, {
+  ComponentProps,
   useCallback,
   useEffect,
   useMemo,
@@ -62,6 +63,8 @@ import {
 import { CollectionToolbar } from './collection-toolbar';
 import l10nMessages from './l10n';
 import { useRouter } from './router';
+import { Item, Menu, MenuTrigger } from '@keystar/ui/menu';
+import { templateKey, templatesFor, type EntryTemplate } from './entry-templates';
 import { EmptyState } from './shell/empty-state';
 import {
   useTree,
@@ -131,6 +134,7 @@ export function CollectionPage(props: CollectionPageProps) {
                 props.collection
               )}/create`
         }
+        templates={templatesFor(props.config, props.collection)}
         searchTerm={searchTerm}
         onSearchTermChange={setSearchTermFromForm}
       />
@@ -141,6 +145,8 @@ export function CollectionPage(props: CollectionPageProps) {
 
 function CollectionPageHeader(props: {
   createHref: string | undefined;
+  /** FORK (devinchaloux): ui.templates for this collection; Add becomes a menu. */
+  templates: EntryTemplate[];
   collectionLabel: string;
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
@@ -229,7 +235,17 @@ function CollectionPageHeader(props: {
       >
         <Icon src={searchIcon} />
       </ActionButton>
-      {createHref && (
+      {/* FORK (devinchaloux): with templates (entry-templates.ts), Add opens
+          a menu: Blank first, then each template's starting point. */}
+      {createHref && props.templates.length > 0 && (
+        <AddFromTemplate
+          createHref={createHref}
+          templates={props.templates}
+          isHidden={searchVisible ? { below: 'tablet' } : undefined}
+          label={stringFormatter.format('add')}
+        />
+      )}
+      {createHref && props.templates.length === 0 && (
         <Button
           marginStart="auto"
           prominence="high"
@@ -750,4 +766,45 @@ export function useDebouncedValue<T>(value: T, delay = 300): T {
   }, [value, delay]);
 
   return debouncedValue;
+}
+
+// FORK (devinchaloux): the Add menu for a collection with templates.
+function AddFromTemplate(props: {
+  createHref: string;
+  templates: EntryTemplate[];
+  isHidden: ComponentProps<typeof Button>['isHidden'];
+  label: string;
+}) {
+  const router = useRouter();
+  const items = [
+    { key: '', label: 'Blank', description: undefined as string | undefined },
+    ...props.templates.map(t => ({
+      key: templateKey(t),
+      label: t.label,
+      description: t.description,
+    })),
+  ];
+  return (
+    <MenuTrigger align="end">
+      <Button marginStart="auto" prominence="high" isHidden={props.isHidden}>
+        {props.label}
+      </Button>
+      <Menu
+        aria-label="Start from"
+        items={items}
+        onAction={key => {
+          router.push(
+            key ? `${props.createHref}?template=${String(key)}` : props.createHref
+          );
+        }}
+      >
+        {item => (
+          <Item key={item.key} textValue={item.label}>
+            <Text>{item.label}</Text>
+            {item.description && <Text slot="description">{item.description}</Text>}
+          </Item>
+        )}
+      </Menu>
+    </MenuTrigger>
+  );
 }
