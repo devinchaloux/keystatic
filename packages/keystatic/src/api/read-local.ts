@@ -7,6 +7,7 @@ import {
 } from '../app/path-utils';
 import { updateTreeWithChanges, blobSha } from '../app/trees';
 import { Config } from '../config';
+import { templatesFor } from '../app/entry-templates';
 import { getDirectoriesForTreeKey } from '../app/tree-key';
 import { fields } from '../form/api';
 import ignore from 'ignore';
@@ -122,6 +123,11 @@ export function getAllowedDirectories(config: Config) {
     );
     if (collectionConfig.template) {
       allowedDirectories.push(collectionConfig.template);
+    }
+    // FORK (devinchaloux): each of the collection's `ui.templates` is read
+    // the same way, or a local editor can't open one (entry-templates.ts).
+    for (const template of templatesFor(config, collection)) {
+      allowedDirectories.push(template.path);
     }
   }
   for (const [singleton, singletonConfig] of Object.entries(
