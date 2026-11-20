@@ -1,6 +1,8 @@
 // FORK (devinchaloux): tests for ui.templates (entry-templates.ts).
 import { expect, test } from 'vitest';
 import { chosenTemplate, templateKey, templatesFor } from './entry-templates';
+import { getAllowedDirectories } from '../api/read-local';
+import { config as makeConfig, collection, fields } from '..';
 
 const config = {
   ui: {
@@ -33,4 +35,22 @@ test('the create address picks a template by key', () => {
   );
   expect(chosenTemplate(config, 'pages', 'nope')).toBeUndefined();
   expect(chosenTemplate(config, 'pages', null)).toBeUndefined();
+});
+
+test('a local editor may read every template', () => {
+  const withTemplates = makeConfig({
+    storage: { kind: 'local' },
+    collections: {
+      pages: collection({
+        label: 'Pages',
+        slugField: 'title',
+        path: 'src/content/pages/*/',
+        schema: { title: fields.slug({ name: { label: 'Title' } }) },
+      }),
+    },
+    ui: config.ui,
+  });
+  const allowed = getAllowedDirectories(withTemplates);
+  expect(allowed).toContain('src/content/page-templates/project');
+  expect(allowed).toContain('src/content/page-templates/talk');
 });
