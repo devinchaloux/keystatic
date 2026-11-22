@@ -12,9 +12,15 @@
 // Keystatic GitHub App holds pull requests read-only. The merge commit
 // names the branch and every entry it changed, so the default branch's
 // history reads as a list of publications.
+//
+// With `ui.publishing.checks`, Publish also starts the site's checks: a
+// site that runs them on every save pays for a run per save, when only the
+// version that goes live needs one. Opening the dialog starts the named
+// workflow on the branch (once), unless its job already ran on the
+// branch's latest commit, and the dialog follows that job until it ends.
 
 import { gql } from '@ts-gql/tag/no-transform';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from 'urql';
 
 import { Button, ButtonGroup } from '@keystar/ui/button';
@@ -30,6 +36,7 @@ import { Heading, Text } from '@keystar/ui/typography';
 import { useRouter } from './router';
 import { useConfig } from './shell/context';
 import { useBranches, useCurrentBranch, useRepoInfo } from './shell/data';
+import { getAuth } from './auth';
 import { getRepoUrl } from './utils';
 
 // ── What the branch holds ────────────────────────────────────────────────────
@@ -111,6 +118,18 @@ const PublishChecksQuery = gql`
             statusCheckRollup {
               id
               state
+              contexts(first: 50) {
+                nodes {
+                  __typename
+                  ... on CheckRun {
+                    id
+                    name
+                    status
+                    conclusion
+                    startedAt
+                  }
+                }
+              }
             }
           }
         }
@@ -138,6 +157,71 @@ const PublishDeleteBranchMutation = gql`
     }
   }
 ` as import('../../__generated__/ts-gql/PublishDeleteBranch').type;
+
+// ── The site's checks, started from Publish ──────────────────────────────────
+
+type Checks = 'passed' | 'running' | 'failed' | 'unknown';
+
+type JobRun = {
+  name: string;
+  status: string;
+  conclusion?: string | null;
+  startedAt?: string | null;
+};
+
+/**
+ * Where the check job stands on a commit, from the commit's check runs:
+ * null when it hasn't run there. A job re-run leaves several runs of the
+ * same name; the latest started is the one that counts.
+ */
+export function jobChecks(runs: JobRun[], job: string): Checks | null {
+  const latest = runs
+    .filter(run => run.name === job)
+    .sort((a, b) => (a.startedAt ?? '').localeCompare(b.startedAt ?? ''))
+    .pop();
+  if (!latest) return null;
+  if (latest.status !== 'COMPLETED') return 'running';
+  switch (latest.conclusion) {
+    case 'SUCCESS':
+      return 'passed';
+    case 'CANCELLED':
+    case 'SKIPPED':
+    case 'STALE':
+    case 'NEUTRAL':
+      return 'unknown';
+    default:
+      return 'failed';
+  }
+}
+
+/** Starts the workflow on the branch; false when GitHub refuses. */
+async function startChecks(
+  config: Parameters<typeof getAuth>[0],
+  repo: { owner: string; name: string },
+  workflow: string,
+  branch: string
+) {
+  const auth = await getAuth(config);
+  if (!auth) return false;
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${repo.owner}/${
+        repo.name
+      }/actions/workflows/${encodeURIComponent(workflow)}/dispatches`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${auth.accessToken}`,
+          Accept: 'application/vnd.github+json',
+        },
+        body: JSON.stringify({ ref: branch }),
+      }
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
 
 // ── The sidebar button ───────────────────────────────────────────────────────
 
@@ -170,8 +254,6 @@ export function PublishButton() {
 }
 
 // ── The dialog ───────────────────────────────────────────────────────────────
-
-type Checks = 'passed' | 'running' | 'failed' | 'unknown';
 
 function checksFrom(state: string | undefined | null): Checks {
   switch (state) {
@@ -207,7 +289,7 @@ function PublishDialog(props: { onDismiss: () => void }) {
     },
     requestPolicy: 'network-only',
   });
-  const [checksResult] = useQuery({
+  const [checksResult, refetchChecks] = useQuery({
     query: PublishChecksQuery,
     variables: { ...repo, head: `refs/heads/${branch}` },
     requestPolicy: 'network-only',
@@ -231,12 +313,66 @@ function PublishDialog(props: { onDismiss: () => void }) {
     [comparison]
   );
   const target = checksResult.data?.repository?.ref?.target;
-  const checks = checksFrom(
-    target?.__typename === 'Commit' ? target.statusCheckRollup?.state : null
+  const rollup =
+    target?.__typename === 'Commit' ? target.statusCheckRollup : null;
+  const checksConfig =
+    (config.ui?.publishing && config.ui.publishing.checks) || undefined;
+  const jobRuns = useMemo(
+    () =>
+      (rollup?.contexts.nodes ?? []).flatMap(node =>
+        node?.__typename === 'CheckRun' ? [node] : []
+      ),
+    [rollup]
   );
+  const job = checksConfig ? jobChecks(jobRuns, checksConfig.job) : null;
+  // Once per dialog: closing and reopening Publish is the way to ask again.
+  const [started, setStarted] = useState<
+    'no' | 'starting' | 'started' | 'refused'
+  >('no');
+  const checksRead = !!checksResult.data && !checksResult.fetching;
+  useEffect(() => {
+    if (!checksConfig || !checksRead || job !== null || started !== 'no') {
+      return;
+    }
+    setStarted('starting');
+    startChecks(
+      config,
+      { owner: repoInfo.owner, name: repoInfo.name },
+      checksConfig.workflow,
+      branch
+    ).then(ok => setStarted(ok ? 'started' : 'refused'));
+  }, [
+    checksConfig,
+    checksRead,
+    job,
+    started,
+    config,
+    repoInfo.owner,
+    repoInfo.name,
+    branch,
+  ]);
+  const checks: Checks | 'refused' = !checksConfig
+    ? checksFrom(rollup?.state)
+    : job ?? (started === 'refused' ? 'refused' : 'running');
+  // Follow a running check, or one just started that GitHub hasn't listed
+  // yet, until it ends. A save to the branch's ledger by the workflow moves
+  // the branch on, and the next read follows it.
+  useEffect(() => {
+    if (!checksConfig || checks !== 'running') return;
+    const timer = setInterval(
+      () => refetchChecks({ requestPolicy: 'network-only' }),
+      5000
+    );
+    return () => clearInterval(timer);
+  }, [checksConfig, checks, refetchChecks]);
   const commitsHref = `${getRepoUrl(repoInfo)}/commits/${encodeURIComponent(
     branch
   )}`;
+  const workflowHref = checksConfig
+    ? `${getRepoUrl(repoInfo)}/actions/workflows/${encodeURIComponent(
+        checksConfig.workflow
+      )}`
+    : commitsHref;
 
   const onPublish = async () => {
     setState({ kind: 'publishing' });
@@ -309,7 +445,14 @@ function PublishDialog(props: { onDismiss: () => void }) {
               </ul>
             </Flex>
           )}
-          {!nothing && <ChecksLine checks={checks} href={commitsHref} />}
+          {!nothing && (
+            <ChecksLine
+              checks={checks}
+              href={commitsHref}
+              workflowHref={workflowHref}
+              onDemand={!!checksConfig}
+            />
+          )}
           {state.kind === 'error' && (
             <Notice tone="critical">{state.message}</Notice>
           )}
@@ -339,7 +482,12 @@ function PublishDialog(props: { onDismiss: () => void }) {
   );
 }
 
-function ChecksLine(props: { checks: Checks; href: string }) {
+function ChecksLine(props: {
+  checks: Checks | 'refused';
+  href: string;
+  workflowHref: string;
+  onDemand: boolean;
+}) {
   const link = (
     <a href={props.href} target="_blank" rel="noopener noreferrer">
       the branch on GitHub
@@ -351,11 +499,34 @@ function ChecksLine(props: { checks: Checks; href: string }) {
         <Text color="positive">The site’s checks passed on the last save.</Text>
       );
     case 'running':
-      return (
+      return props.onDemand ? (
+        <Flex gap="regular" alignItems="center">
+          <ProgressCircle size="small" isIndeterminate aria-label="Checking" />
+          <Text color="neutralSecondary">
+            Checking the last save, which takes a minute or two ({link}). You
+            can publish now; if the checks fail, the live site keeps its current
+            version.
+          </Text>
+        </Flex>
+      ) : (
         <Text color="neutralSecondary">
           The site’s checks are still running on the last save ({link}). You can
           publish now; if they fail, the live site keeps its current version.
         </Text>
+      );
+    case 'refused':
+      return (
+        <Notice tone="caution">
+          GitHub didn’t let the editor start the site’s checks. Run them from{' '}
+          <a
+            href={props.workflowHref}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            the workflow on GitHub
+          </a>{' '}
+          (Run workflow, on this branch), or publish without them.
+        </Notice>
       );
     case 'failed':
       return (
