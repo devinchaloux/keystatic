@@ -141,8 +141,16 @@ type UserInterface<Collections, Singletons> = {
    * `storage.branchPrefix`. On any other branch the sidebar has a Publish
    * button, which merges the branch into the default branch and deletes it.
    * `site` names the live site in the messages ("devinchaloux.com").
+   *
+   * `checks` names the site's check: a GitHub Actions workflow that can be
+   * started by hand (`workflow_dispatch`), and the job in it that Publish
+   * waits for. With it, the site needn't run its checks on every save:
+   * opening Publish starts the workflow on the branch, unless that job has
+   * already run on the branch's latest commit, and the dialog follows it to
+   * the end. Starting a workflow needs the GitHub App's Actions permission
+   * (read and write); without it, the dialog links to the workflow instead.
    */
-  publishing?: { site?: string };
+  publishing?: { site?: string; checks?: { workflow: string; job: string } };
   /**
    * FORK (devinchaloux): the site's own checks, run on an entry as it's
    * edited. The entry, unsaved, is POSTed to `url` as JSON
