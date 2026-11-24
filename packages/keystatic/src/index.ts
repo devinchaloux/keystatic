@@ -20,3 +20,5 @@ export type {
   LocalConfig,
   Singleton,
 } from './config';
+// FORK (devinchaloux): the shape of ui.desk's `branches`.
+export type { WritingBranch } from './app/dashboard/writing-branches';
