@@ -182,6 +182,7 @@ function ItemPageInner(
     initialFiles: props.initialFiles,
     storage: config.storage,
     basePath: currentBasePath,
+    publishing: config.ui?.publishing,
   });
 
   const onDelete = useEventCallback(async () => {
@@ -401,6 +402,9 @@ function ItemPageInner(
               />
             )}
         </DialogContainer>
+        {/* FORK (devinchaloux): a delete on the live site's branch goes to a
+            writing branch first (`ui.publishing`). A container holds one
+            dialog, so this one has its own. */}
         <DialogContainer
           // ideally this would be a popover on desktop but using a DialogTrigger
           // wouldn't work since this doesn't open on click but after doing a
@@ -408,6 +412,30 @@ function ItemPageInner(
           // and modal would be a pain
           onDismiss={resetDeleteItem}
         >
+          {deleteResult.kind === 'needs-new-branch' && (
+            <CreateBranchDuringUpdateDialog
+              branchOid={baseCommit}
+              onCreate={async newBranch => {
+                const deleted = await deleteItem({
+                  branch: newBranch,
+                  sha: baseCommit,
+                });
+                if (deleted) {
+                  router.push(
+                    `/keystatic/branch/${encodeURIComponent(
+                      newBranch
+                    )}/collection/${encodeURIComponent(collection)}`
+                  );
+                }
+              }}
+              reason={deleteResult.reason}
+              suggestedName={deleteResult.suggestedName}
+              submitLabel="Create branch and delete"
+              onDismiss={resetDeleteItem}
+            />
+          )}
+        </DialogContainer>
+        <DialogContainer onDismiss={resetDeleteItem}>
           {deleteResult.kind === 'needs-fork' &&
             isGitHubConfig(props.config) && (
               <ForkRepoDialog
@@ -865,6 +893,8 @@ export function CreateBranchDuringUpdateDialog(props: {
   reason: string;
   /** FORK (devinchaloux): a name to start from (the entry's slug). */
   suggestedName?: string;
+  /** FORK (devinchaloux): the submit button, when it isn't a save. */
+  submitLabel?: string;
 }) {
   const stringFormatter = useLocalizedStringFormatter(l10nMessages);
   const repoInfo = useRepoInfo();
@@ -944,7 +974,7 @@ export function CreateBranchDuringUpdateDialog(props: {
             {stringFormatter.format('cancel')}
           </Button>
           <Button isDisabled={isLoading} prominence="high" type="submit">
-            Create branch and save
+            {props.submitLabel ?? 'Create branch and save'}
           </Button>
         </ButtonGroup>
       </form>
