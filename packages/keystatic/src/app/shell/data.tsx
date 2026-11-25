@@ -400,7 +400,12 @@ export function GitHubAppShellProvider(props: {
         return [
           [
             x.name,
-            { id: x.id, commitSha: x.target.oid, treeSha: x.target.tree.oid },
+            {
+              id: x.id,
+              commitSha: x.target.oid,
+              treeSha: x.target.tree.oid,
+              committedAt: x.target.committedDate,
+            },
           ],
         ];
       })
@@ -475,6 +480,8 @@ type BranchInfo = {
   id: string;
   commitSha: string;
   treeSha: string;
+  /** FORK (devinchaloux): the date of the branch's latest commit (ISO). */
+  committedAt: string;
 };
 
 const BranchesContext = createContext<Map<string, BranchInfo>>(new Map());
@@ -570,6 +577,9 @@ export const Ref_base = gql`
       id
       oid
       ... on Commit {
+        # FORK (devinchaloux): when the branch last changed, for ui.desk's
+        # list of writing branches.
+        committedDate
         tree {
           id
           oid

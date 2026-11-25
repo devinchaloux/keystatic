@@ -4,6 +4,7 @@ import { ReactElement } from 'react';
 import { ComponentSchema, FormField, SlugFormField } from './form/api';
 import type { Locale } from './app/l10n/locales';
 import { RepoConfig } from './app/repo-config';
+import type { WritingBranch } from './app/dashboard/writing-branches';
 
 // Common
 // ----------------------------------------------------------------------------
@@ -128,11 +129,15 @@ type UserInterface<Collections, Singletons> = {
    * FORK (devinchaloux): a site's own panel at the top of the dashboard (the
    * collection cards stay below it). `navigate` moves within the admin
    * without a page load; `basePath` is where the admin lives, e.g.
-   * "/keystatic".
+   * "/keystatic". `branches` are the writing branches not yet published:
+   * GitHub storage only (empty otherwise), those under
+   * `storage.branchPrefix` (every branch but the default one when there is
+   * no prefix), newest first.
    */
   desk?: (props: {
     basePath: string;
     navigate: (href: string) => void;
+    branches: WritingBranch[];
   }) => ReactElement | null;
   /**
    * FORK (devinchaloux): write on branches, publish with a button. GitHub

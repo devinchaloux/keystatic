@@ -29,6 +29,7 @@ import { createUrqlClient } from './provider';
 import { serializeProps } from '../form/serialize-props';
 import { scopeEntriesWithPathPrefix } from './shell/path-prefix';
 import { base64Encode } from '#base64';
+import { needsWritingBranch } from './publishing-guard';
 
 const textEncoder = new TextEncoder();
 
@@ -159,10 +160,13 @@ export function useUpsertItem(args: {
         // instead. The pages already offer that dialog for a protected
         // branch; this asks for it before trying.
         if (
-          args.config.storage.kind === 'github' &&
           args.config.ui?.publishing &&
-          repoInfo &&
-          (override?.branch ?? currentBranch) === repoInfo.defaultBranch
+          needsWritingBranch({
+            storageKind: args.config.storage.kind,
+            publishing: true,
+            branch: override?.branch ?? currentBranch,
+            defaultBranch: repoInfo?.defaultBranch,
+          })
         ) {
           const site = args.config.ui.publishing.site ?? 'the live site';
           setState({
@@ -391,6 +395,8 @@ export function useDeleteItem(args: {
   basePath: string;
   initialFiles: string[];
   storage: Config['storage'];
+  /** FORK (devinchaloux): `ui.publishing`, so a delete waits for Publish. */
+  publishing?: { site?: string };
 }) {
   const [state, setState] = useState<
     | { kind: 'idle' }
@@ -398,6 +404,7 @@ export function useDeleteItem(args: {
     | { kind: 'loading' }
     | { kind: 'needs-fork' }
     | { kind: 'error'; error: Error }
+    | { kind: 'needs-new-branch'; reason: string; suggestedName?: string }
   >({
     kind: 'idle',
   });
@@ -412,7 +419,7 @@ export function useDeleteItem(args: {
 
   return [
     state,
-    async () => {
+    async (override?: { sha: string; branch: string }): Promise<boolean> => {
       try {
         const unscopedTree =
           unscopedTreeData.kind === 'loaded'
@@ -426,6 +433,25 @@ export function useDeleteItem(args: {
           appSlug?.value
         ) {
           setState({ kind: 'needs-fork' });
+          return false;
+        }
+        // FORK (devinchaloux): as for a save, a delete on the live site's
+        // branch goes to a writing branch, and reaches the site with Publish.
+        if (
+          args.publishing &&
+          needsWritingBranch({
+            storageKind: args.storage.kind,
+            publishing: true,
+            branch: override?.branch ?? currentBranch,
+            defaultBranch: repoInfo?.defaultBranch,
+          })
+        ) {
+          const site = args.publishing.site ?? 'the live site';
+          setState({
+            kind: 'needs-new-branch',
+            reason: `Deleting here would remove it from ${site} straight away. Delete on a writing branch instead, then press Publish when it's ready.`,
+            suggestedName: 'delete-' + args.basePath.split('/').pop(),
+          });
           return false;
         }
         setState({ kind: 'loading' });
@@ -445,10 +471,10 @@ export function useDeleteItem(args: {
             input: {
               branch: {
                 repositoryNameWithOwner: `${repoInfo.owner}/${repoInfo.name}`,
-                branchName: currentBranch,
+                branchName: override?.branch ?? currentBranch,
               },
               message: { headline: `Delete ${args.basePath}` },
-              expectedHeadOid: baseCommit,
+              expectedHeadOid: override?.sha ?? baseCommit,
               fileChanges: {
                 deletions: deletions.map(path => ({ path })),
               },
@@ -494,6 +520,7 @@ export function useDeleteItem(args: {
         }
       } catch (err) {
         setState({ kind: 'error', error: err as Error });
+        return false;
       }
     },
     () => {

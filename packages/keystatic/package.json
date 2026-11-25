@@ -1,7 +1,7 @@
 {
   "name": "@keystatic/core",
   "version": "0.6.9",
-  "forkRelease": "devinchaloux.16",
+  "forkRelease": "devinchaloux.17",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -152,7 +152,7 @@
     "micromark-extension-gfm-strikethrough": "^2.0.0",
     "micromark-extension-gfm-table": "^2.0.0",
     "micromark-extension-mdxjs": "^3.0.0",
-    "minimatch": "^10.2.6",
+    "minimatch": "^11.0.9",
     "partysocket": "^0.0.22",
     "prosemirror-commands": "^1.5.1",
     "prosemirror-history": "^1.3.0",

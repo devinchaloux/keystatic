@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useLocalizedStringFormatter } from 'react-aria/useLocalizedStringFormatter';
 
 import { Avatar } from '@keystar/ui/avatar';
@@ -9,13 +10,14 @@ import { Heading } from '@keystar/ui/typography';
 import { Config } from '../../config';
 
 import l10nMessages from '../l10n';
-import { useCloudInfo } from '../shell/data';
+import { useBranches, useCloudInfo, useRepoInfo } from '../shell/data';
 import { PageBody, PageHeader, PageRoot } from '../shell/page';
 import { useViewer } from '../shell/viewer-data';
 
 import { BranchSection } from './BranchSection';
 import { DashboardCards } from './DashboardCards';
-import { isLocalConfig } from '../utils';
+import { getBranchPrefix, isLocalConfig } from '../utils';
+import { writingBranches } from './writing-branches';
 import { useRouter } from '../router';
 
 export function DashboardPage(props: { config: Config; basePath: string }) {
@@ -26,6 +28,19 @@ export function DashboardPage(props: { config: Config; basePath: string }) {
   const router = useRouter();
   const Desk = props.config.ui?.desk;
   const compact = props.config.ui?.density === 'compact';
+  // FORK (devinchaloux): useBranches is empty in local mode, so the desk
+  // gets an empty list there.
+  const branches = useBranches();
+  const repoInfo = useRepoInfo();
+  const deskBranches = useMemo(
+    () =>
+      writingBranches(
+        branches,
+        repoInfo?.defaultBranch,
+        getBranchPrefix(props.config)
+      ),
+    [branches, repoInfo?.defaultBranch, props.config]
+  );
 
   const user = viewer
     ? { name: viewer.name ?? viewer.login, avatarUrl: viewer.avatarUrl }
@@ -45,7 +60,13 @@ export function DashboardPage(props: { config: Config; basePath: string }) {
 
           {!isLocalConfig(props.config) && <BranchSection />}
           {/* FORK (devinchaloux): the site's desk, above the cards. */}
-          {Desk && <Desk basePath={props.basePath} navigate={router.push} />}
+          {Desk && (
+            <Desk
+              basePath={props.basePath}
+              navigate={router.push}
+              branches={deskBranches}
+            />
+          )}
           <DashboardCards />
         </Flex>
       </PageBody>
